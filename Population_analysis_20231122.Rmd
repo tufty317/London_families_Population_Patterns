@@ -1,0 +1,612 @@
+---
+title: "Population analysis, November 22nd 2023"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bslib)
+library(DT)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(htmlwidgets)
+library(knitr)
+library(lubridate)
+library(maps)
+library(scales)
+library(forcats)
+
+data_dir <- 'DATA/'
+chart_dir <- 'CHARTS/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Import census population data for London
+
+input_2011data <- fread(paste0(data_dir,"Census2011_London_SYA_byBorough.csv"))%>% 
+  filter(grepl('E09000', LA_code)) %>%  
+  data.frame()
+
+input_2021data_long <- fread(paste0(data_dir,"Census2021_London_SYA_byBorough_long.csv"))%>% 
+  mutate(census = 2021) %>%
+  select (-c(Age_desc)) %>%
+  data.frame()
+
+# convert 2011 data from wide to long format
+
+#input_2011data_ed <- select(input_2011data, -contains("V"))
+
+input_2011data_long <- input_2011data %>% 
+  pivot_longer(
+    cols = `All`:`X100`, 
+    names_to = "year",
+    values_to = "Value") %>%
+  mutate(Age_code = as.numeric(gsub("X", "", year))) %>%
+  mutate(census = 2011) %>%
+  mutate(Borough_code = LA_code) %>%
+  mutate(Borough_name = LA_name) %>%
+  select (-c(year, Region_code, Region_name, LA_code, LA_name)) %>%
+    data.frame()
+
+
+#----------------------------------------------------------------------------------
+## An aside 
+
+# calculate totals for 2011 by borough (to check against values in original file)
+summ_2011data <- input_2011data_long %>% 
+  drop_na() %>%
+#  filter(year !="All") %>%
+  group_by(Borough_code) %>% 
+  summarise(Sum_value = sum(Value)) %>%
+  data.frame()
+
+# calculate totals for 2021 by borough
+summ_2021data <- input_2021data_long %>% 
+  group_by(Borough_code) %>% 
+  summarise(Sum_value = sum(Value)) %>%
+  data.frame()
+#----------------------------------------------------------------------------------
+
+# Add the two files together 
+Census_byBorough <- rbind(input_2011data_long, input_2021data_long) %>%
+    drop_na() %>%
+  data.frame()
+
+#--------------------------------------------
+# Group to get borough totals for each of the two time points
+
+Census_total_byBorough <- Census_byBorough %>% 
+  group_by(Borough_code, census) %>% 
+  summarise(Sum_value = sum(Value)) %>%
+  data.frame()
+
+# Group again to get census total for London for the two time points
+
+Census_total1 <- Census_total_byBorough %>% 
+  filter(grepl('E09000', Borough_code)) %>%  
+  group_by(census) %>% 
+  summarise(Total_value = sum(Sum_value)) %>%
+  data.frame()
+# 2011 = 8,173,941; 2021 = 8,799,756
+
+#------------------------------------------------
+
+# Group again to get totals for each year of age, for each of the two time points
+
+Census_total_byLondon <- Census_byBorough %>% 
+  filter(grepl('E09000', Borough_code)) %>%
+  group_by(Age_code, census) %>% 
+  summarise(Sum_value = sum(Value)) %>%
+  data.frame()
+
+# Group again to get census total for London for the two time points, to check same as above
+Census_total2 <- Census_total_byLondon %>% 
+  group_by(census) %>% 
+  summarise(Total_value = sum(Sum_value)) %>%
+  data.frame()
+
+
+```
+
+
+```{r fig_pop_pyramid_SYA, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## population pyramic with 2011 data on the left and 2021 on the right
+
+Census_total_byLondon %>%
+  mutate(population = ifelse(census=="2011", Sum_value*(-1),
+                        Sum_value*1))%>%
+    mutate(census_factor = as.factor(census)) %>%
+    ggplot(aes(x = Age_code,y = population/1000, fill=census_factor)) + 
+    theme_gla()+
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    labs(title= "Population Pyramid for London, comparing 2011 with 2021", 
+         x = "Age",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+
+# ggsave (filename = (paste0(chart_dir, "modelled_births_zone_line.png")),
+#          plot = modelled_births_zone_line,
+#          device = "png",
+#          dpi=600,
+#          width = 9,
+#          height = 5.56,
+#          units = "in")
+
+
+
+```
+
+```{r setup3, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+# Convert data from long to wide format, and calculate percentage change between census time points
+
+London_data_wide <- Census_total_byLondon %>% 
+  pivot_wider(
+    names_from=census, values_from=Sum_value) %>%
+  data.frame()
+
+London_calc <- London_data_wide %>%
+  mutate(changePerc = ((X2021 - X2011)*100/X2011)) %>%
+  data.frame()
+
+```
+
+
+```{r fig_pop_change_SYA, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+Census_change_byLondon <- London_calc %>%
+    ggplot(aes(x = Age_code, y = changePerc), ) + 
+    theme_gla()+
+    geom_bar(stat = "identity", fill = '#6da7de') +
+    coord_flip() +
+    labs(title= "Percentage change in population, comparing 2011 with 2021", 
+         x = "Age",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+Census_change_byLondon
+
+
+```
+
+
+```{r setup4, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+# Use age groups 
+
+agebreaks <- c(0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,200)
+agelabels <- c("0-4","5-9","10-14","15-19","20-24","25-29","30-34",
+               "35-39","40-44","45-49","50-54","55-59","60-64","65-69",
+               "70-74","75-79","80-84","85-89","90-94","95-99","100+")
+
+setDT(Census_total_byLondon)[ , agegroups := cut(Age_code, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+Census_total_byLondon_grouped <- Census_total_byLondon %>%
+  group_by(agegroups, census) %>% 
+  summarise(Grouped_value = sum(Sum_value)) %>%
+  data.frame()
+
+London_grouped_data_wide <- Census_total_byLondon_grouped %>% 
+  pivot_wider(
+    names_from=census, values_from=Grouped_value) %>%
+  data.frame()
+
+London_grouped_calc <- London_grouped_data_wide %>%
+  mutate(changePerc = ((X2021 - X2011)*100/X2011)) %>%
+  data.frame()
+
+
+```
+
+
+```{r fig_pop_change_grouped, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+Census_change_byLondon <- London_grouped_calc %>%
+    ggplot(aes(x = agegroups, y = changePerc), ) + 
+    theme_gla()+
+    geom_bar(stat = "identity", fill = '#6da7de') +
+    coord_flip() +
+    theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+    labs(title= "Percentage change in London's population by age group, comparing 2011 with 2021", 
+         x = "Age",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+Census_change_byLondon
+
+
+```
+
+
+```{r setup5, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Starting again, incorporating age group from the start, and doing separately by Inner and Outer London
+
+boroughcodes <- read.csv(paste0(data_dir,"InnerLondon.csv")) %>%   
+  data.frame
+
+# Specify age groups 
+
+agebreaks <- c(0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,200)
+agelabels <- c("0-4","5-9","10-14","15-19","20-24","25-29","30-34",
+               "35-39","40-44","45-49","50-54","55-59","60-64","65-69",
+               "70-74","75-79","80-84","85-89","90-94","95-99","100+")
+
+# Merge population data with Inner/Outer file
+
+London_pop_zone <- Census_byBorough %>%
+  left_join(boroughcodes, by=c("Borough_code"="BoroughCode"))%>% 
+  mutate(Inner_factor= recode(Inner, "1"="Inner", "0"="Outer")) %>%
+    select (-c(BoroughName)) %>%
+  data.frame() 
+
+setDT(London_pop_zone)[ , agegroups := cut(Age_code, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+
+```
+
+
+```{r setup6, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Group by age-group and zones
+
+London_pop_zone_grouped <- London_pop_zone %>%
+  group_by(agegroups, census, Inner_factor) %>% 
+  summarise(Sum_value = sum(Value)) %>%
+  data.frame()
+
+
+
+#------------------------------------------
+## AN ASIDE
+
+# Group to get Zone totals for each of the two time points
+
+Census_total_byZone <- London_pop_zone_grouped %>% 
+  group_by(Inner_factor, census) %>% 
+  summarise(Total_value = sum(Sum_value)) %>%
+  data.frame()
+# Inner 2011 3231901; Inner 2021 3404164; Outer 2011 4942040; Outer 2021 5395592
+
+# Group again to get check census total for London for the two time points
+
+Census_London_total <- Census_total_byZone %>% 
+  drop_na() %>%
+  group_by(census) %>% 
+  summarise(TotalTotal_value = sum(Total_value)) %>%
+  data.frame()
+# 2011 = 8173941; 2021 = 879975
+
+#-----------------------------------------------------
+
+```
+
+
+```{r fig_pop_pyramid_grouped, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+London_pop_zone_grouped %>%
+    drop_na() %>%
+  mutate(population = ifelse(census=="2011", Sum_value*(-1),
+                        Sum_value*1))%>%
+    mutate(census_factor = as.factor(census)) %>%
+    ggplot(aes(x = agegroups,y = population/1000, fill=census_factor)) + 
+    theme_gla()+
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    labs(title= "Population Pyramid for London, comparing 2011 with 2021", 
+         x = "Age",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography")) +
+    facet_grid(. ~ Inner_factor)
+
+
+```
+
+```{r setup7, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Convert data long to wide format, and calculate percentage change between census time points
+
+London_pop_zone_grouped_wide <- London_pop_zone_grouped %>% 
+  pivot_wider(
+    names_from=census, values_from=Sum_value) %>%
+  data.frame()
+
+London_calc2 <- London_pop_zone_grouped_wide %>%
+  mutate(changePerc = ((X2021 - X2011)*100/X2011)) %>%
+  data.frame()
+
+```
+
+
+```{r fig_pop_change_zones_agegroups, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+Census_change_byLondon2 <- London_calc2  %>%
+    drop_na() %>%
+    ggplot(aes(x = agegroups, y = changePerc, fill = Inner_factor), ) + 
+    theme_gla()+
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+    guides(fill = "none")+
+    labs(title= "Percentage change in London's population by age group, comparing 2011 with 2021", 
+         x = "Age",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography")) +
+    facet_grid(. ~ Inner_factor) +
+    scale_fill_manual(values = catcolour2) 
+Census_change_byLondon2
+
+
+```
+
+
+
+```{r setup8, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Analyse separately by borough 
+
+# Group by age-group and borough making sure borough names are kept as well as codes
+
+London_pop_borough_grouped <- London_pop_zone %>%
+  group_by(agegroups, census, Borough_code, Borough_name) %>% 
+  summarise(Sum_value = sum(Value)) %>%
+  data.frame()
+
+# Convert data long to wide format, and 
+
+London_pop_borough_grouped_wide <- London_pop_borough_grouped %>% 
+  pivot_wider(
+    names_from=census, values_from=Sum_value) %>%
+  data.frame()
+
+# calculate percentage change between census time points and merge data with Inner/Outer file
+
+London_calc3 <- London_pop_borough_grouped_wide %>%
+  mutate(changePerc = ((X2021 - X2011)*100/X2011)) %>%
+  left_join(boroughcodes, by=c("Borough_code"="BoroughCode"))%>% 
+  mutate(Inner_factor= recode(Inner, "1"="Inner", "0"="Outer")) %>%
+    select (-c(BoroughName)) %>%
+  data.frame() 
+
+```
+
+
+
+```{r fig_pop_change_boroughs_agegroups, fig.height = 30, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+Census_change_byLondon3 <- London_calc3  %>%
+    drop_na() %>%
+    ggplot(aes(x = agegroups, y = changePerc, fill = Inner_factor)) + 
+    theme_gla()+
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+
+    guides(fill = "none")+
+    labs(title= "Percentage change in London's population by age group, comparing 2011 with 2021", 
+         x = "Age",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography")) +
+    facet_wrap(vars(Borough_name), ncol=4)+  #, scales ='free'
+    scale_fill_manual(values = catcolour2) 
+Census_change_byLondon3
+
+#    theme(axis.label.y = element_text(vjust = 0.5)) +
+
+```
+
+
+```{r setup9, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Compare 0 year olds in 2011 with 10 year olds in 2021
+
+## Import 2011 census population data for London
+
+input_2011data <- fread(paste0(data_dir,"Census2011_London_SYA_byBorough.csv"))%>% 
+  filter(grepl('E09000', LA_code)) %>%  
+  data.frame()
+
+# convert 2011 data from wide to long format and select age zero
+
+input_2011data_Age0_long <- input_2011data %>% 
+  pivot_longer(
+    cols = `All`:`X100`, 
+    names_to = "year",
+    values_to = "Value") %>%
+  mutate(Age_code = as.numeric(gsub("X", "", year))) %>%
+  filter(Age_code == 0) %>%    
+  mutate(census = 2011) %>%
+  mutate(Borough_code = LA_code) %>%
+  mutate(Borough_name = LA_name) %>%
+  select (-c(year, Region_code, Region_name, LA_code, LA_name)) %>%
+    data.frame()
+
+## Import 2021 census population data for London and select for 10 year olds
+
+input_2021data_Age10_long <- fread(paste0(data_dir,"Census2021_London_SYA_byBorough_long.csv"))%>% 
+  mutate(census = 2021) %>%
+  select(-c(Age_desc)) %>%
+  filter(Age_code == 10) %>%  
+  data.frame()
+
+# Add the two files together 
+
+Census_ageZeroandTen_byBorough = full_join(input_2011data_Age0_long, input_2021data_Age10_long,
+                                  by=c("Borough_code" = "Borough_code", "Borough_name" = "Borough_name")) %>%
+  
+   data.frame()
+ 
+# Calculate change
+
+London_ageZeroandTen_calc <- Census_ageZeroandTen_byBorough %>%
+  mutate(changePerc = ((Value.y - Value.x)*100/Value.x)) %>%
+    drop_na() %>%
+  data.frame()
+
+quantile(London_ageZeroandTen_calc$changePerc)
+quantile(London_ageZeroandTen_calc$changePerc, probs = seq(0, 1, 1/5))
+
+
+```
+
+```{r fig_pop_change_cohort, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Interactive map of change 
+
+# Import LA boundaries for England and Wales
+borough_boundaries <-
+  st_read("C:/Migration/Migration_R/DATA/Domestic/copied_from_Qdrive_20220614/geographical/LAD_DEC_2021_GB_BUC.shp", quiet = TRUE)
+
+londonmap5 = c("#f46d43", "#fdae61", "#fee090", "#ffffbf", "#e0f3f8")
+
+# Match boundary data with pop data and create categories for mapping
+
+change_London_geog <- London_ageZeroandTen_calc %>% 
+  left_join(borough_boundaries, by=c("Borough_code"="LAD21CD")) %>%
+  mutate(Perc_Cat = cut(changePerc, breaks = c(-40, -28, -16, -10, 0, 24),
+                             right=FALSE,
+                             labels = c(" -40.0 - -28.01",
+                                        " -28.0 - -16.01",
+                                        " -16.0 - -10.01",
+                                        " -10.0 - -0.01",
+                                        " 0 - 24"))) %>%
+  data.frame()
+
+cohort_change_map <- change_London_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N,
+                 text = paste("Borough: ", Borough_name,
+                              "<br>Percent change: ",
+                              formatC(changePerc, format="f", big.mark=",", digits=2))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.2, colour = "black")+
+  #ggla_sf()+
+  #theme_gla()+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank())+
+  scale_fill_manual(values = londonmap5) + 
+  labs(title= "Cohort change between 2011 and 2021 (zeros to ten year olds) in London", 
+       caption = paste0("Source: Home Office, Chart: GLA demography")) +
+  labs(fill = "")
+
+# ggsave (filename = (paste0(chart_dir, "cohort_change_map.png")),
+#          plot = cohort_change_map,
+#          device = "png",
+#          dpi=600,
+#          width = 9,
+#          height = 5.56,
+#          units = "in")
+
+
+# Interactive map using ggplotly
+cohort_change_map_int <- ggplotly(cohort_change_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Cohort change between 2011 and 2021 (zeros to ten year olds) in London<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+cohort_change_map_int
+
+```
+
+
+```{r setup10, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Group by zones
+
+boroughcodes <- read.csv(paste0(data_dir,"InnerLondon.csv")) %>%   
+  data.frame
+
+# Merge population data with Inner/Outer file
+
+London_ageZeroandTen_calc_zone <- London_ageZeroandTen_calc %>%
+  left_join(boroughcodes, by=c("Borough_code"="BoroughCode"))%>% 
+  mutate(Inner_factor= recode(Inner, "1"="Inner", "0"="Outer")) %>%
+    select (-c(BoroughName)) %>%
+  data.frame() 
+
+#------------------------------------------------
+
+# Group by Zone
+
+London_ageZeroandTen_zone_grouped <- London_ageZeroandTen_calc_zone %>%
+  group_by(Inner_factor) %>% 
+  summarise(Sum_2011 = sum(Value.x), Sum_2021 = sum(Value.y)) %>%
+  data.frame()
+
+# Calculate change for zones
+
+London_calc4 <- London_ageZeroandTen_zone_grouped %>%
+  mutate(changePerc = ((Sum_2021 - Sum_2011)*100/Sum_2011)) %>%
+  data.frame()
+
+#---------------------------------------------
+
+# Summarise for whole of London and calculate change for London
+
+London_ageZeroandTen_London_grouped <- London_ageZeroandTen_calc_zone %>%
+  group_by(Age_code.x) %>% 
+  summarise(Sum_2011 = sum(Value.x), Sum_2021 = sum(Value.y)) %>%
+  mutate(changePerc = ((Sum_2021 - Sum_2011)*100/Sum_2011)) %>% 
+  data.frame()
+
+
+
+```

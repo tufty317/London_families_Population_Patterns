@@ -131,6 +131,8 @@ Census_total2 <- Census_total_byLondon %>%
 
 ```{r fig_pop_pyramid_SYA, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
+## population pyramic with 2011 data on the left and 2021 on the right
+
 Census_total_byLondon %>%
   mutate(population = ifelse(census=="2011", Sum_value*(-1),
                         Sum_value*1))%>%
