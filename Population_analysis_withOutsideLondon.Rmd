@@ -1,5 +1,5 @@
 ---
-title: "Population, November 17th 2023"
+title: "Population, November 23rd 2023"
 output: 
   html_document:
     css: Wil_style.css
@@ -349,21 +349,29 @@ south_region_boundaries <-
 borough_boundaries <-
   st_read("C:/Migration/Migration_R/DATA/Domestic/copied_from_Qdrive_20220614/geographical/LAD_DEC_2021_GB_BUC.shp", quiet = TRUE)
 
-londonmap6_diverge = c('#b2182b','#ef8a62','#fddbc7','#f7f7f7','#d1e5f0','#67a9cf')
-londonmap5 = c("#f46d43", "#fdae61", "#fee090", "#ffffbf", "#e0f3f8")
+# code from file 
+# C:/Computing_and_Analysis_Resources/Vignettes_(includes%20GLA)/GGLA/v01_Using_GLA_colour_palettes.html
+
+londonmap7_diverge = gla_pal(gla_theme = "default", palette_type = "diverging",
+        main_colours = c("purple", "turquoise"), n = 7, inc0 = TRUE)
+
+
+#londonmap6_diverge = c('#b2182b','#ef8a62','#fddbc7','#f7f7f7','#d1e5f0','#67a9cf')
+#londonmap5 = c("#f46d43", "#fdae61", "#fee090", "#ffffbf", "#e0f3f8")
 
 # Match boundary data with pop data and create categories for mapping
 
 change_South_geog <- South_ageZeroandTen_calc %>% 
   left_join(borough_boundaries, by=c("new_code"="LAD21CD")) %>%
-  mutate(Perc_Cat = cut(changePerc, breaks = c(-40, -28, -16, -5, 5, 24, 40),
+  mutate(Perc_Cat = cut(changePerc, breaks = c(-40, -28, -16, -5, 5, 16, 28, 40),
                              right=FALSE,
                              labels = c(" -40.0 - -28.01",
                                         " -28.0 - -16.01",
                                         " -16.0 - -5.01",
                                         " -5.0  -  4.99",
-                                        "  5.0  - 23.99",
-                                        " 24.0  - 40.00"))) %>%
+                                        "  5.0  - 15.99",
+                                        " 16.0  - 27.99",
+                                        " 28.0  - 40.00"))) %>%
   data.frame()
 
 cohort_change_map_expanded <- change_South_geog %>%
@@ -391,7 +399,7 @@ cohort_change_map_expanded <- change_South_geog %>%
         axis.ticks.x = element_blank(), 
         axis.ticks.y = element_blank(),
         panel.border = element_rect(colour = "black", fill=NA, size=2))+
-  scale_fill_manual(values = londonmap6_diverge) + 
+  scale_fill_manual(values = londonmap7_diverge) + 
 #  scale_alpha_manual(values=c(0.5, 0)) +
   labs(title= "Inter-census cohort change (<1 y.o in 2011 to 10 y.o. in 2021)", 
        caption = paste0("Source: Home Office, Chart: GLA demography")) +
