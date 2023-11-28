@@ -1,0 +1,444 @@
+---
+title: "Population, November 24th 2023"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bslib)
+library(DT)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(htmlwidgets)
+library(knitr)
+library(lubridate)
+library(maps)
+library(scales)
+library(forcats)
+
+data_dir <- 'DATA/'
+chart_dir <- 'CHARTS/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+## Import census population data
+
+input_MYE2022data <- fread(paste0(data_dir,"MYE22_London_CompsofChange.csv")) %>% 
+    data.frame()
+MYE2022data <- input_MYE2022data %>%
+  mutate(natural_change_adj = Births.minus.Deaths*1000/MYE2021) %>%
+  mutate(int_mig_net_adj = International.Migration.Net*1000/MYE2021) %>%
+  mutate(dom_mig_net_adj = Internal.Migration.Net*1000/MYE2021) %>%
+  mutate(pop_change = MYE2022 - MYE2021) %>%
+    mutate(pop_change_adj = pop_change*1000/MYE2021) %>%
+    data.frame()
+
+# convert data from wide to long format
+
+MYE2022data_long <- MYE2022data %>% 
+  pivot_longer(
+    cols = `MYE2021`:`pop_change_adj`, 
+    names_to = "component",
+    values_to = "Value") %>%
+    data.frame()
+
+
+```
+
+
+```{r fig_natural_change_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of natural change 
+
+#my_pal = gla_pal(palette_type = "quantitative",
+   #     main_colours = "green", n = 5)
+
+# Import LA boundaries for England and Wales
+borough_boundaries <-
+  st_read("C:/Migration/Migration_R/DATA/Domestic/copied_from_Qdrive_20220614/geographical/LAD_DEC_2021_GB_BUC.shp", quiet = TRUE)
+
+# Match boundary data with pop data 
+
+natural_change_abs_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "Births.minus.Deaths") %>%
+    filter(Code != "E09000001") %>%
+  data.frame()
+
+natural_change_abs_map <- natural_change_abs_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Natural change in London from MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+natural_change_abs_map
+
+
+
+```
+
+```{r fig_natural_change_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of natural change adjusted for 2021 population
+
+# Match boundary data with pop data 
+
+natural_change_adj_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "natural_change_adj") %>%
+    filter(Code != "E09000001") %>%
+  data.frame()
+
+
+natural_change_adj_map <- natural_change_adj_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5")) +
+  labs(title= "Natural change in London from MYE 2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+
+natural_change_adj_map 
+
+```
+
+```{r fig_domestic_migration_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of domestic net migration
+
+# Match boundary data with pop data 
+
+dom_mig_net_abs_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "Internal.Migration.Net") %>%
+    filter(Code != "E09000001") %>%
+  data.frame()
+
+dom_mig_net_abs_map <- dom_mig_net_abs_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Net Domestic Migration, London from MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+dom_mig_net_abs_map
+
+```
+
+
+```{r fig_dom_mig_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of net domestic migration, adjusted for population 
+
+# Match boundary data with pop data 
+
+dom_mig_net_adj_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "dom_mig_net_adj") %>%
+    filter(Code != "E09000001") %>%
+  data.frame()
+
+dom_mig_net_adj_map <- dom_mig_net_adj_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Net Domestic Migration, London from MYE 2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+dom_mig_net_adj_map
+
+
+
+```
+
+
+```{r fig_international_migration_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of international net migration
+
+# Match boundary data with pop data 
+
+int_mig_net_abs_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "International.Migration.Net") %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+int_mig_net_abs_map <- int_mig_net_abs_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Net International Migration, London from MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+int_mig_net_abs_map
+
+```
+
+
+```{r fig_int_mig_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of net international migration, adjusted for population 
+
+# Match boundary data with pop data 
+
+int_mig_net_adj_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "int_mig_net_adj") %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+int_mig_net_adj_map <- int_mig_net_adj_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Net International Migration, London from MYE 2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+int_mig_net_adj_map
+
+
+
+```
+
+
+```{r fig_pop_change_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change
+
+# Match boundary data with pop data 
+
+pop_change_abs_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "pop_change") %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+pop_change_abs_map <- pop_change_abs_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Population change, London MYE 2021 to MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+pop_change_abs_map
+
+```
+
+
+```{r fig_pop_change_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change, adjusted for population 
+
+# Match boundary data with pop data 
+
+pop_change_adj_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "pop_change_adj") %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+pop_change_adj_map <- pop_change_adj_geog %>%
+  ggplot()+
+  geom_sf(aes(geometry=geometry, fill=Value),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+pop_change_adj_map
+
+```
+
+
+```{r fig_pop_change_adj_labels, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change, adjusted for population, with labels 
+
+# Match boundary data with pop data 
+
+pop_change_adj_geog <- MYE2022data_long %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(component == "pop_change_adj") %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+pop_change_adj_map <- pop_change_adj_geog %>%
+  ggplot(aes(geometry=geometry, fill=Value, label = Label),lwd = 0.2, colour = "black")+
+  geom_sf()+
+  geom_sf_label(fill = "white", fun.geometry = sf::st_centroid) +
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+ # scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+   scale_fill_gradient2(low = "turquoise", mid = "white",  high = "purple", midpoint = 0) +
+ # scale_fill_manual(values = my_pal) + 
+  labs(title= "Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+pop_change_adj_map
+
+```
