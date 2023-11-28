@@ -1,0 +1,1179 @@
+---
+title: "Population analysis, November 28th 2023"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(zoo)
+library(data.table)
+library(tidyverse)
+library(gglaplot)
+library(ggplot2)
+library(scales)
+library(readxl)
+library(knitr)
+library(sf)
+library(sp)
+library(kableExtra)
+library(magick)
+library(plotly)    
+library(RColorBrewer)
+library(htmltools)
+library(prettydoc)
+library(rmdformats)
+library(ggrepel)
+
+#devtools::load_all("C:/demogtools/")
+
+data_dir <- 'DATA/'
+chart_dir <- 'C:/Families/Charts/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+
+```{r setup_2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Read in population data (these data are from 1991 and whole UK)
+
+EandW_pop <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>% 
+  filter(grepl('W06000', gss_code) | grepl('E08000', gss_code) |  grepl('E07000', gss_code) |  grepl('E06000', gss_code)) %>%
+  filter(sex == "persons") %>%  
+   data.frame()
+
+London_pop <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>% 
+  filter(grepl('E09000', gss_code)) %>% 
+  filter(sex == "persons") %>%  
+  data.frame()
+
+# Now include zone of London
+
+boroughcodes <- read.csv(paste0(data_dir,"InnerLondon.csv")) %>%   
+  data.frame
+
+London_pop_zone <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>%
+  filter(grepl('E09000', gss_code)) %>% 
+  filter(sex == "persons") %>%  
+  left_join(boroughcodes, by=c("gss_code"="BoroughCode"))%>% 
+  data.frame()
+
+```
+
+
+```{r setup_total_1, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Use all the population data 
+
+EandW_pop_Tot <- EandW_pop %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/48278723)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_Tot %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+London_pop_Tot <- London_pop %>%
+ # filter(age < 5) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "London") %>%
+  mutate(Indexed_pop = (SUM_pop/8306006)*100) %>%
+  data.frame()
+
+value_London_2012 <- London_pop_Tot %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+``` 
+
+
+```{r fig_London_Eng_total_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Line plot of total population for London and Rest of England (excluding London) & Wales
+
+# Combine England and London data
+
+merged_pop_tot = rbind(London_pop_Tot, EandW_pop_Tot) %>%  
+  data.frame()
+
+tot_London_EandW_line <- merged_pop_tot %>%
+  ggplot() +
+  geom_line(data=merged_pop_tot[merged_pop_tot$Region == "EandW", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Region, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_tot[merged_pop_tot$Region == "London", ], 
+              aes(x = Year, y = Indexed_pop, group = Region, colour = "London", 
+                text = paste("Area: London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('London'='#943fab', 'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Total population indexed to 2012",
+  subtitle = "London and Rest of England & Wales, 1991 - 2021", 
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+tot_London_EandW_line
+
+
+```
+
+
+
+```{r setup_totalPop_2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# This code is the same as above except for adding an extra variable to enable merging later
+EandW_pop_tot <- EandW_pop %>%
+   mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Inner = "2") %>%  
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/48278723)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_tot %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+InnerLondon_pop_tot <- London_pop_zone %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "1") %>%
+  mutate(Region = "Inner London") %>%
+  mutate(Indexed_pop = (SUM_pop/3270216)*100) %>%
+  data.frame()
+
+value_InnerLondon_2012 <- InnerLondon_pop_tot %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+OuterLondon_pop_tot <- London_pop_zone %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "0") %>%
+  mutate(Region = "Outer London") %>%
+  mutate(Indexed_pop = (SUM_pop/5035790)*100) %>%
+  data.frame()
+
+value_OuterLondon_2012 <- OuterLondon_pop_tot %>%
+  filter(Year == "2012") %>%
+  filter(Inner == "0") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+ 
+```
+
+
+
+```{r fig_totalpop_2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Line plot of young adult population for zones of London and Rest of England (excluding London) & Wales
+
+# Combine England and London data
+
+merged_pop_tot = rbind(InnerLondon_pop_tot, OuterLondon_pop_tot, EandW_pop_tot) %>%  
+  data.frame()
+
+tot_IandO_London_EandW_line <- merged_pop_tot %>%
+  ggplot() +
+  geom_line(data=merged_pop_tot[merged_pop_tot$Inner == "2", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Inner, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_tot[merged_pop_tot$Inner == "1", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Inner London", 
+                text = paste("Area: Inner London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+      geom_line(data=merged_pop_tot[merged_pop_tot$Inner == "0", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Outer London", 
+                text = paste("Area: Outer London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('Inner London'='#ee266d', 
+                                                         'Outer London' = '#6da7de', 
+                                                          'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Total population indexed to 2012",
+  subtitle = "Inner and Outer London and Rest of England & Wales, 1991 - 2021",  
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+tot_IandO_London_EandW_line
+
+ggsave (filename = (paste0(chart_dir, "pop_tot_IandO_London_EandW_line.png")),
+         plot = tot_IandO_London_EandW_line,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+```
+
+```{r setup_babies_1, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Select only the 0-1 year olds from poulation data frames
+
+EandW_pop_babies <- EandW_pop %>%
+  filter(age < 1) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/595704)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_babies %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+London_pop_babies <- London_pop %>%
+  filter(age < 1) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "London") %>%
+  mutate(Indexed_pop = (SUM_pop/132135)*100) %>%
+  data.frame()
+
+value_London_2012 <- London_pop_babies %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+ 
+```
+
+```{r fig_London_Eng_babies_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Line plot of 0-1year olds for London and Rest of England (excluding London) & Wales
+
+# Combine England and London data
+
+merged_pop_babies = rbind(London_pop_babies, EandW_pop_babies) %>%  
+  data.frame()
+
+babies_London_EandW_line <- merged_pop_babies %>%
+  ggplot() +
+  geom_line(data=merged_pop_babies[merged_pop_babies$Region == "EandW", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Region, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Indexed Number of babies: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_babies[merged_pop_babies$Region == "London", ], 
+              aes(x = Year, y = Indexed_pop, group = Region, colour = "London", 
+                text = paste("Area: London",
+                             "<br>Year: ", Year,
+                             "<br>Indexed Number of babies: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('London'='#943fab', 'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Number of babies, indexed to 2012",
+  subtitle = "London and Rest of England & Wales, 1991 - 2021", 
+  caption = paste0("Source: ONS, Chart: GLA demography")) 
+    
+babies_London_EandW_line
+
+```
+
+```{r setup_babies2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Now include zone of London
+
+# Select babies
+
+EandW_pop_babies <- EandW_pop %>%
+  filter(age < 1) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Inner = "2") %>%  # add extra variables so that number of variables is equal later
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/595704)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_babies %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+InnerLondon_pop_babies <- London_pop_zone %>%
+   filter(age < 1) %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "1") %>%
+  mutate(Region = "Inner London") %>%
+  mutate(Indexed_pop = (SUM_pop/52000)*100) %>%
+  data.frame()
+
+value_InnerLondon_2012 <- InnerLondon_pop_babies %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+OuterLondon_pop_babies <- London_pop_zone %>%
+  filter(age < 1) %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "0") %>%
+  mutate(Region = "Outer London") %>%
+  mutate(Indexed_pop = (SUM_pop/80135)*100) %>%
+  data.frame()
+
+value_OuterLondon_2012 <- OuterLondon_pop_babies %>%
+  filter(Year == "2012") %>%
+  filter(Inner == "0") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+ 
+```
+
+
+```{r fig_London_Eng_babies_2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Combine England and London data
+
+merged_pop_babies = rbind(InnerLondon_pop_babies, OuterLondon_pop_babies, EandW_pop_babies) %>%  
+  data.frame()
+
+babies_IandO_London_EandW_line <- merged_pop_babies %>%
+  ggplot() +
+  geom_line(data=merged_pop_babies[merged_pop_babies$Inner == "2", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Inner, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_babies[merged_pop_babies$Inner == "1", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Inner London", 
+                text = paste("Area: Inner London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+      geom_line(data=merged_pop_babies[merged_pop_babies$Inner == "0", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Outer London", 
+                text = paste("Area: Outer London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('Inner London'='#ee266d', 
+                                                         'Outer London' = '#6da7de', 
+                                                          'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Number of babies, indexed to 2012",
+  subtitle = "Inner and Outer London and Rest of England & Wales, 1991 - 2021", 
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+babies_IandO_London_EandW_line
+
+```
+
+
+```{r setup_youngChildren_1, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# From the population data select only the 0-5 year olds 
+
+EandW_pop_YC <- EandW_pop %>%
+  filter(age < 5) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/2950570)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_YC %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+London_pop_YC <- London_pop %>%
+  filter(age < 5) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "London") %>%
+  mutate(Indexed_pop = (SUM_pop/604640)*100) %>%
+  data.frame()
+
+value_London_2012 <- London_pop_YC %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+ 
+```
+
+
+
+```{r fig_London_Eng_young_children_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Line plot of 0-5 year olds for London and Rest of England (excluding London) & Wales
+
+# Combine England and London data
+
+merged_pop_YC = rbind(London_pop_YC, EandW_pop_YC) %>%  
+  data.frame()
+
+YC_London_EandW_line <- merged_pop_YC %>%
+  ggplot() +
+  geom_line(data=merged_pop_YC[merged_pop_YC$Region == "EandW", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Region, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Indexed Number of 0-5 y.o.children: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_YC[merged_pop_YC$Region == "London", ], 
+              aes(x = Year, y = Indexed_pop, group = Region, colour = "London", 
+                text = paste("Area: London",
+                             "<br>Year: ", Year,
+                             "<br>Indexed Number of 0-5 y.o. children: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('London'='#943fab', 'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Number of 0 - 5 year olds, Indexed to 2012", 
+      subtitle = "London and Rest of England & Wales, 1991 - 2021",  
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+YC_London_EandW_line
+
+
+```
+
+```{r setup_youngChildren2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Now include zone of London
+
+# Select young children from population data
+
+EandW_pop_YC <- EandW_pop %>%
+  filter(age < 5) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Inner = "2") %>%  # add extra variables so that number of variables is equal later
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/2950570)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_YC %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+InnerLondon_pop_YC <- London_pop_zone %>%
+   filter(age < 5) %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "1") %>%
+  mutate(Region = "Inner London") %>%
+  mutate(Indexed_pop = (SUM_pop/227853)*100) %>%
+  data.frame()
+
+value_InnerLondon_2012 <- InnerLondon_pop_YC %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+OuterLondon_pop_YC <- London_pop_zone %>%
+  filter(age < 5) %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "0") %>%
+  mutate(Region = "Outer London") %>%
+  mutate(Indexed_pop = (SUM_pop/376787)*100) %>%
+  data.frame()
+
+value_OuterLondon_2012 <- OuterLondon_pop_YC %>%
+  filter(Year == "2012") %>%
+  filter(Inner == "0") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+ 
+```
+
+
+
+```{r fig_London_Eng_youngChildren_2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Combine England and London data
+
+merged_pop_YC = rbind(InnerLondon_pop_YC, OuterLondon_pop_YC, EandW_pop_YC) %>%  
+  data.frame()
+
+YC_IandO_London_EandW_line <- merged_pop_YC %>%
+  ggplot() +
+  geom_line(data=merged_pop_YC[merged_pop_YC$Inner == "2", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Inner, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_YC[merged_pop_YC$Inner == "1", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Inner London", 
+                text = paste("Area: Inner London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+      geom_line(data=merged_pop_YC[merged_pop_YC$Inner == "0", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Outer London", 
+                text = paste("Area: Outer London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('Inner London'='#ee266d', 
+                                                         'Outer London' = '#6da7de', 
+                                                          'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Number of young children (0 - 5 years), indexed to 2012",
+  subtitle = "Inner and Outer London and Rest of England & Wales, 1991 - 2021", 
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+YC_IandO_London_EandW_line
+
+ggsave (filename = (paste0(chart_dir, "Pop_YC_IandO_London_EandW_line.png")),
+         plot = YC_IandO_London_EandW_line,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+
+
+```
+
+
+```{r setup_youngadults_1, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Select young adults
+
+EandW_pop_YA <- EandW_pop %>%
+  filter(age < 40) %>%
+  filter(age > 24) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/8923074)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_YA %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+London_pop_YA <- London_pop %>%
+  filter(age < 40) %>%
+  filter(age > 24) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Region = "London") %>%
+  mutate(Indexed_pop = (SUM_pop/2333785)*100) %>%
+  data.frame()
+
+value_London_2012 <- London_pop_YA %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+ 
+```
+
+
+```{r fig_London_Eng_youngAdults_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Line plot of young adult population for London and Rest of England (excluding London) & Wales
+
+# Combine England and London data
+
+merged_pop_YA = rbind(London_pop_YA, EandW_pop_YA) %>%  
+  data.frame()
+
+YA_London_EandW_line <- merged_pop_YA %>%
+  ggplot() +
+  geom_line(data=merged_pop_YA[merged_pop_YA$Region == "EandW", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Region, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_YA[merged_pop_YA$Region == "London", ], 
+              aes(x = Year, y = Indexed_pop, group = Region, colour = "London", 
+                text = paste("Area: London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('London'='#943fab', 'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Young adult population (25-39y.) indexed to 2012",
+  subtitle = "London and Rest of England & Wales, 1991 - 2021", 
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+YA_London_EandW_line
+
+```
+
+
+```{r setup_Youngadults_2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Now include zone of London
+
+# Select young adults
+
+EandW_pop_YA <- EandW_pop %>%
+  filter(age < 40) %>%
+  filter(age > 24) %>%
+  mutate(Year = as.character(year)) %>%
+  group_by(Year) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  mutate(Inner = "2") %>%  # add extra variables so that number of variables is equal later
+  mutate(Region = "EandW") %>%
+  mutate(Indexed_pop = (SUM_pop/8923074)*100) %>%
+  data.frame()
+
+value_EandW_2012 <- EandW_pop_YA %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+InnerLondon_pop_YA <- London_pop_zone %>%
+  filter(age < 40) %>%
+  filter(age > 24) %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "1") %>%
+  mutate(Region = "Inner London") %>%
+  mutate(Indexed_pop = (SUM_pop/1102797)*100) %>%
+  data.frame()
+
+value_InnerLondon_2012 <- InnerLondon_pop_YA %>%
+  filter(Year == "2012") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+
+OuterLondon_pop_YA <- London_pop_zone %>%
+  filter(age < 40) %>%
+  filter(age > 24) %>%
+  mutate(Year = as.character(year)) %>%
+  mutate(Inner = as.character(Inner)) %>% 
+  group_by(Year, Inner) %>% 
+  summarize(SUM_pop = sum(value)) %>%
+  filter(Inner == "0") %>%
+  mutate(Region = "Outer London") %>%
+  mutate(Indexed_pop = (SUM_pop/1230988)*100) %>%
+  data.frame()
+
+value_OuterLondon_2012 <- OuterLondon_pop_YA %>%
+  filter(Year == "2012") %>%
+  filter(Inner == "0") %>%
+  select(SUM_pop) %>%
+  unlist() %>%
+  unname() 
+ 
+```
+
+
+```{r fig_YoungAdults_2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Line plot of young adult population for zones of London and Rest of England (excluding London) & Wales
+
+# Combine England and London data
+
+merged_pop_YA = rbind(InnerLondon_pop_YA, OuterLondon_pop_YA, EandW_pop_YA) %>%  
+  data.frame()
+
+YA_IandO_London_EandW_line <- merged_pop_YA %>%
+  ggplot() +
+  geom_line(data=merged_pop_YA[merged_pop_YA$Inner == "2", ], size = 1, alpha = 1, 
+            aes(x = Year, y = Indexed_pop, group = Inner, colour = "Rest of E&W", 
+                text = paste("Area: Rest of England and Wales", 
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 0)) 
+  ), size = 1) + 
+    geom_line(data=merged_pop_YA[merged_pop_YA$Inner == "1", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Inner London", 
+                text = paste("Area: Inner London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+      geom_line(data=merged_pop_YA[merged_pop_YA$Inner == "0", ], 
+              aes(x = Year, y = Indexed_pop, group = Inner, colour = "Outer London", 
+                text = paste("Area: Outer London",
+                             "<br>Year: ", Year,
+                             "<br>Population: ", round(Indexed_pop, digits = 1)) 
+  ), size = 1) + 
+  theme_gla() +
+#  ylim(70, 110) +
+  theme(axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  scale_color_manual(name='Geographical area:', values=c('Inner London'='#ee266d', 
+                                                         'Outer London' = '#6da7de', 
+                                                          'Rest of E&W'='#5ea15d')) +
+  scale_x_discrete(name ="Year", breaks=c("1991", "1996", "2001","2006","2011", "2016", "2021")) +
+  scale_y_continuous(labels=function(x) paste0(x,"%"), limits = c(70, 110), breaks = c(70, 80, 90, 100, 110)) +
+  theme(legend.title=element_text(size=12, family = "Arial"),
+        legend.text=element_text(size=11, family = "Arial"),
+        axis.text.x=element_text(color = "black", 
+                                 size=11, family = "Arial"),  #, angle=30, vjust=.8, hjust=0.8
+        axis.text.y=element_text(color = "black", size=11, family = "Arial")) +
+  labs(title= "Young adult population (25-39y.) indexed to 2012",
+  subtitle = "Inner and Outer London and Rest of England & Wales, 1991 - 2021",  
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+YA_IandO_London_EandW_line
+
+ggsave (filename = (paste0(chart_dir, "pop_YA_IandO_London_EandW_line.png")),
+         plot = YA_IandO_London_EandW_line,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+```
+
+
+
+```{r London_setup_calculations, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## London plots on 28th November
+
+# Read in population data (these data are from 1991 and whole UK)
+
+EandW_pop <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>% 
+  filter(grepl('W06000', gss_code) | grepl('E08000', gss_code) |  grepl('E07000', gss_code) |  grepl('E06000', gss_code)) %>%
+  filter(sex == "persons") %>%  
+   data.frame()
+
+# Merge population data with Inner/Outer file
+
+boroughcodes <- read.csv(paste0(data_dir,"InnerLondon.csv")) %>%   
+  data.frame
+
+London_pop_zone <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>%
+  filter(grepl('E09000', gss_code)) %>% 
+  filter(sex == "persons") %>%  
+  left_join(boroughcodes, by=c("gss_code"="BoroughCode"))%>% 
+  mutate(Inner_factor= recode(Inner, "1"="Inner", "0"="Outer")) %>%
+  data.frame()
+
+# Specify age groups 
+
+agebreaks <- c(0,11,18,25,40,65, 200)
+agelabels <- c("0-10","11-17","18-24","25-39","40-64","65+")
+
+setDT(London_pop_zone)[ , agegroups := cut(age, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+# Group by age-group
+
+London_pop_grouped <- London_pop_zone %>%
+  group_by(agegroups, year) %>% 
+  summarise(Sum_value = sum(value)) %>%
+  data.frame()
+```
+
+
+```{r fig_LondonPlots_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Plotting London population by age-group, over time
+
+London_pop_grouped_line <- London_pop_grouped %>%
+  mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  ggplot(aes(x = year, y = Sum_value, group = agegroups, color = agegroups, text = paste("Year: ", year,
+                         "<br>Age group: ", agegroups,
+                         "<br>Population: ", round(Sum_value, digits = 3))
+)) +
+  theme_gla() +
+  #theme(legend.position = "right") +
+  scale_color_discrete(guide = FALSE) +
+  geom_line() +
+  geom_label_repel(aes(label = label), nudge_x = 0.1)+
+ # scale_y_continuous(label = unit_format(unit = "K"))+
+  scale_y_continuous(labels = label_number(suffix = "K", scale = 1e-3, big.mark = ","))+
+  labs(title= "Population in London by age group, 1993 - 2021", 
+       subtitle = "Population in thousands",
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+London_pop_grouped_line
+
+
+```
+
+
+```{r fig_LondonPlots_2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Plotting London population by age-group, indexed values to 1993
+
+London_pop_grouped_ind <- London_pop_grouped %>%
+  group_by(agegroups) %>% 
+  mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
+  data.frame()
+  
+London_pop_grouped_line <- London_pop_grouped_ind %>%
+  mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
+                         "<br>Age group: ", agegroups,
+                         "<br>Indexed Population: ", round(indexed_pop, digits = 3))
+)) +
+  theme_gla() +
+ # theme(legend.position = "right") +
+  scale_color_discrete(guide = FALSE) +
+  geom_line() +
+  geom_hline(yintercept=100)+
+  ylim(80, 160) +  
+  scale_y_continuous(labels = label_number(suffix = "%")) +
+  geom_label_repel(aes(label = label), nudge_x = 0.1)+
+  labs(title= "Population in London by age group, indexed to 1993, 1993 - 2021", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+London_pop_grouped_line
+
+
+```
+
+
+```{r fig_LondonPlots_3, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Plotting London population by age-group, indexed values to 2001
+
+London_pop_grouped_ind <- London_pop_grouped %>%
+  group_by(agegroups) %>% 
+  filter(year > 2000) %>%
+  mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
+  data.frame()
+  
+London_pop_grouped_line <- London_pop_grouped_ind %>%
+    mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
+                         "<br>Age group: ", agegroups,
+                         "<br>Indexed Population: ", round(indexed_pop, digits = 3))
+)) +
+  theme_gla() +
+  scale_color_discrete(guide = FALSE) +
+  #theme(legend.position = "right") +
+  geom_line() +
+  geom_hline(yintercept=100)+
+  scale_y_continuous(labels = label_number(suffix = "%")) +
+ #  ylim(80, 160) +  
+  geom_label_repel(aes(label = label), nudge_x = 0.1)+
+  labs(title= "Population in London by age group, indexed to 2001, 2001 - 2021", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+London_pop_grouped_line
+
+
+```
+
+```{r fig_LondonPlots_4, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Plotting London population by age-group, indexed values to 2011
+
+London_pop_grouped_ind <- London_pop_grouped %>%
+  group_by(agegroups) %>% 
+  filter(year > 2010) %>%
+  mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
+  data.frame()
+  
+London_pop_grouped_line <- London_pop_grouped_ind %>%
+  mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
+                         "<br>Age group: ", agegroups,
+                         "<br>Indexed Population: ", round(indexed_pop, digits = 3))
+)) +
+  theme_gla() +
+  scale_color_discrete(guide = FALSE) +
+#  theme(legend.position = "right") +
+  geom_line() +
+  geom_hline(yintercept=100)+
+  scale_y_continuous(labels = label_number(suffix = "%")) +
+  geom_label_repel(aes(label = label), nudge_x = 0.1)+
+  labs(title= "Population in London by age group, indexed to 2011, 2011 - 2021", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+London_pop_grouped_line
+
+
+```
+
+```{r fig_LondonPlots_5, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Now facet by zone 
+
+# Group by age-group
+
+London_pop_zone_grouped <- London_pop_zone %>%
+  group_by(agegroups, year, Inner_factor) %>% 
+  summarise(Sum_value = sum(value)) %>%
+  data.frame()
+
+## Plotting London population by age-group and zone, indexed values to 2011
+
+London_pop_grouped_zone_ind <- London_pop_zone_grouped %>%
+  group_by(agegroups, Inner_factor) %>% 
+  filter(year > 2010) %>%
+  mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
+  data.frame()
+  
+London_pop_grouped_line_facet <- London_pop_grouped_zone_ind %>%
+  mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
+                         "<br>Age group: ", agegroups,
+                         "<br>Indexed Population: ", round(indexed_pop, digits = 3))
+)) +
+  theme_gla() +
+#  theme(legend.position = "right") +
+  scale_color_discrete(guide = FALSE) +
+  geom_line() +
+  geom_hline(yintercept=100)+
+#  ylim(0, 150) +
+  geom_label_repel(aes(label = label), nudge_x = 0.2)+
+  scale_y_continuous(labels = label_number(suffix = "%")) +
+  labs(title= "Population in Inner and Outer London by age group, indexed to 2011, 2011 - 2021", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+facet_grid(. ~ Inner_factor)
+London_pop_grouped_line_facet
+
+
+
+
+```
+
+
+```{r setup_10, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Read in population data (these data are from 1991 and whole UK)
+
+EandW_pop <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>% 
+  filter(grepl('W06000', gss_code) | grepl('E08000', gss_code) |  grepl('E07000', gss_code) |  grepl('E06000', gss_code)) %>%
+  filter(sex == "persons") %>%  
+  mutate(Year = as.character(year)) %>%
+   data.frame()
+
+# For London, include zone
+
+boroughcodes <- read.csv(paste0(data_dir,"InnerLondon.csv")) %>%   
+  data.frame
+
+London_pop_zone <-  readRDS(paste0(data_dir,"pop_1991_2021_age_0to85plus.rds")) %>%
+  filter(grepl('E09000', gss_code)) %>% 
+  filter(sex == "persons") %>%  
+  left_join(boroughcodes, by=c("gss_code"="BoroughCode"))%>% 
+  mutate(Year = as.character(year)) %>%
+  data.frame()
+
+# Specify age groups 
+
+agebreaks <- c(0,11,18,25,40,65, 200)
+agelabels <- c("0-10","11-17","18-24","25-39","40-64","65+")
+
+setDT(London_pop_zone)[ , agegroups := cut(age, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+setDT(EandW_pop)[ , agegroups := cut(age, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+# Group by age-group
+
+EandW_pop_grouped <- EandW_pop %>%
+  group_by(agegroups, year) %>% 
+  summarise(Sum_value = sum(value)) %>%
+  mutate(Region = "Rest of EandW") %>%
+  data.frame()
+
+London_pop_grouped <- London_pop_zone %>%
+  group_by(agegroups, year, Inner) %>% 
+  summarise(Sum_value = sum(value)) %>%
+  data.frame()
+
+InnerLondon_pop_grouped <- London_pop_grouped %>%
+  filter(Inner == "1") %>%
+  mutate(Region = "Inner London") %>%
+  select (-c(Inner)) %>%
+  data.frame()
+
+OuterLondon_pop_grouped <- London_pop_grouped %>%
+  filter(Inner == "0") %>%
+  mutate(Region = "Outer London") %>%
+  select (-c(Inner)) %>%
+  data.frame()
+
+
+```
+
+```{r fig_EandWPlots_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+merged_pop_tot = rbind(InnerLondon_pop_grouped, OuterLondon_pop_grouped, EandW_pop_grouped) %>%  
+  data.frame()
+
+## Plotting all populations by age-group, indexed values to 2011
+
+merged_pop_tot_ind <- merged_pop_tot %>%
+  filter(year > 2010) %>%  
+  group_by(agegroups, Region) %>% 
+  mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
+  data.frame()
+  
+Merged_pop_grouped_line_facet <- merged_pop_tot_ind  %>%
+  mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
+                         "<br>Age group: ", agegroups,
+                         "<br>Indexed Population: ", round(indexed_pop, digits = 3))
+)) +
+  theme_gla() +
+#  theme(legend.position = "right") +
+  scale_color_discrete(guide = FALSE) +
+  geom_line() +
+  geom_hline(yintercept=100)+
+#  ylim(0, 150) +
+  geom_label_repel(aes(label = label), nudge_x = 0.2)+
+  scale_y_continuous(labels = label_number(suffix = "%")) +
+  labs(title= "Population in Inner and Outer London, and rest of England and Wales ", 
+       subtitle = "By age group, Indexed to 2011, 2011 - 2021", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+facet_grid(. ~ Region)
+Merged_pop_grouped_line_facet
+
+```
