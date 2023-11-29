@@ -1145,8 +1145,7 @@ OuterLondon_pop_grouped <- London_pop_grouped %>%
 
 ```{r fig_EandWPlots_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
-merged_pop_tot = rbind(InnerLondon_pop_grouped, OuterLondon_pop_grouped, EandW_pop_grouped) %>%  
-  data.frame()
+merged_pop_tot = rbind(InnerLondon_pop_grouped, OuterLondon_pop_grouped, EandW_pop_grouped) %>%    data.frame()
 
 ## Plotting all populations by age-group, indexed values to 2011
 
