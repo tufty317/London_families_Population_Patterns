@@ -548,11 +548,11 @@ pop_change_abs_map_int
 ```
 
 
-```{r fig_pop_change_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+```{r fig_pop_change_adj1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
 ## Map of population change, adjusted for population 
 
-pop_change_adj_map <- MYE2022_geog %>%
+pop_change_adj_map1 <- MYE2022_geog %>%
   ggplot()+
   geom_point(aes(x=BNG_E, y=BNG_N, 
                     text = paste("Borough: ", Name,  
@@ -586,7 +586,7 @@ pop_change_adj_map <- MYE2022_geog %>%
 #pop_change_adj_map
 
 # Interactive map using ggplotly
-pop_change_adj_map_int <- ggplotly(pop_change_adj_map, tooltip = "text") %>%
+pop_change_adj_map_int1 <- ggplotly(pop_change_adj_map1, tooltip = "text") %>%
   layout(title= list(x = 0.05,
                      text = "<b>Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population<b>", 
                      font=list(size = 15, family = "Arial")),
@@ -600,10 +600,65 @@ pop_change_adj_map_int <- ggplotly(pop_change_adj_map, tooltip = "text") %>%
                             showarrow = F, xref='paper', yref='paper', 
                             font=list(size=14, family = "Arial")), 
          margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
-pop_change_adj_map_int
+pop_change_adj_map_int1
 
 ```
 
+
+```{r fig_pop_change_adj2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change, adjusted for population 
+
+pop_change_adj_map2 <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                    text = paste("Borough: ", Name,  
+                              "<br>MYE 2021: ", MYE2021,
+                              "<br>MYE 2022: ", MYE2022,
+                              "<br>Population change: ", pop_change,
+                               "<br>Population change/1000: ", 
+                              formatC(pop_change_adj,format="f", digits=1))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=pop_change_adj),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradient2(low = "#63c5b5", mid = "#eeeeee",  high = "#943fa6", midpoint = 0) +
+  labs(title= "Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "Change/1000")
+#pop_change_adj_map
+
+# Interactive map using ggplotly
+pop_change_adj_map_int2 <- ggplotly(pop_change_adj_map2, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+pop_change_adj_map_int2
+```
 
 ```{r fig_pop_change_adj_labels, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
