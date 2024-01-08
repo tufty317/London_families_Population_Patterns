@@ -1,0 +1,52 @@
+﻿Period,Date,Source,Component,Value,Lower bound,25% limit,75% limit,Upper bound
+YE Jun 12,30/06/2012,Estimates,Immigration,639000,,,,
+YE Jun 13,30/06/2013,Estimates,Immigration,669000,,,,
+YE Jun 14,30/06/2014,Estimates,Immigration,737000,,,,
+YE Jun 15,30/06/2015,Estimates,Immigration,778000,,,,
+YE Jun 16,30/06/2016,Estimates,Immigration,832000,,,,
+YE Jun 17,30/06/2017,Estimates,Immigration,718000,,,,
+YE Jun 18,30/06/2018,Estimates,Immigration,757000,,,,
+YE Dec 18,31/12/2018,Estimates,Immigration,825000,,,,
+YE Jun 19,30/06/2019,Estimates,Immigration,821000,,,,
+YE Dec 19,31/12/2019,Estimates,Immigration,788000,,,,
+YE Jun 20,30/06/2020,Estimates,Immigration,736000,,,,
+YE Dec 20,31/12/2020,Estimates,Immigration,662000,,,,
+YE Jun 21,30/06/2021,Estimates,Immigration,709000,,,,
+YE Dec 21,31/12/2021,Estimates,Immigration,891000,,,,
+YE Jun 22,30/06/2022,Provisional,Immigration,1078000,1055000,1070000,1087000,1104000
+YE Dec 22,31/12/2022,Provisional,Immigration,1234000,1170000,1202000,1236000,1269000
+YE Jun 23,30/06/2023,Provisional,Immigration,1180000,1096000,1136000,1179000,1219000
+YE Jun 12,30/06/2012,Estimates,Emmigration,477000,,,,
+YE Jun 13,30/06/2013,Estimates,Emmigration,454000,,,,
+YE Jun 14,30/06/2014,Estimates,Emmigration,489000,,,,
+YE Jun 15,30/06/2015,Estimates,Emmigration,482000,,,,
+YE Jun 16,30/06/2016,Estimates,Emmigration,511000,,,,
+YE Jun 17,30/06/2017,Estimates,Emmigration,518000,,,,
+YE Jun 18,30/06/2018,Estimates,Emmigration,541000,,,,
+YE Dec 18,31/12/2018,Estimates,Emmigration,549000,,,,
+YE Jun 19,30/06/2019,Estimates,Emmigration,597000,,,,
+YE Dec 19,31/12/2019,Estimates,Emmigration,605000,,,,
+YE Jun 20,30/06/2020,Estimates,Emmigration,625000,,,,
+YE Dec 20,31/12/2020,Estimates,Emmigration,569000,,,,
+YE Jun 21,30/06/2021,Estimates,Emmigration,488000,,,,
+YE Dec 21,31/12/2021,Estimates,Emmigration,424000,,,,
+YE Jun 22,30/06/2022,Provisional,Emmigration,471000,433000,454000,475000,496000
+YE Dec 22,31/12/2022,Provisional,Emmigration,489000,457000,474000,494000,513000
+YE Jun 23,30/06/2023,Provisional,Emmigration,508000,468000,493000,519000,543000
+YE Jun 12,30/06/2012,Estimates,Net migration,162000,,,,
+YE Jun 13,30/06/2013,Estimates,Net migration,215000,,,,
+YE Jun 14,30/06/2014,Estimates,Net migration,248000,,,,
+YE Jun 15,30/06/2015,Estimates,Net migration,296000,,,,
+YE Jun 16,30/06/2016,Estimates,Net migration,321000,,,,
+YE Jun 17,30/06/2017,Estimates,Net migration,200000,,,,
+YE Jun 18,30/06/2018,Estimates,Net migration,216000,,,,
+YE Dec 18,31/12/2018,Estimates,Net migration,276000,,,,
+YE Jun 19,30/06/2019,Estimates,Net migration,224000,,,,
+YE Dec 19,31/12/2019,Estimates,Net migration,184000,,,,
+YE Jun 20,30/06/2020,Estimates,Net migration,111000,,,,
+YE Dec 20,31/12/2020,Estimates,Net migration,93000,,,,
+YE Jun 21,30/06/2021,Estimates,Net migration,221000,,,,
+YE Dec 21,31/12/2021,Estimates,Net migration,466000,,,,
+YE Jun 22,30/06/2022,Provisional,Net migration,607000,575000,600000,628000,655000
+YE Dec 22,31/12/2022,Provisional,Net migration,745000,679000,716000,753000,792000
+YE Jun 23,30/06/2023,Provisional,Net migration,672000,579000,627000,677000,724000

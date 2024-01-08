@@ -1,0 +1,572 @@
+---
+title: "Population analysis, with int.mign data, Jan 8th 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(zoo)
+library(data.table)
+library(tidyverse)
+library(gglaplot)
+library(ggplot2)
+library(scales)
+library(readxl)
+library(knitr)
+library(sf)
+library(sp)
+library(kableExtra)
+library(magick)
+library(plotly)    
+library(RColorBrewer)
+library(htmltools)
+library(prettydoc)
+library(rmdformats)
+library(ggrepel)
+
+#devtools::load_all("C:/demogtools/")
+
+data_dir <- 'DATA/'
+chart_dir <- 'C:/Families/Charts/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup_2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Read in population data 
+
+input_comp_data_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/London_Total_Components_of_change_2011 to 2022.csv")%>% 
+   data.frame()
+
+input_intmig_data_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/International_migration_Nov23.csv")%>% 
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame()
+
+input_intmig_extradata_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/International_migration_2012to2023_Nov23.csv")%>% 
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame()
+
+input_EUmig_extradata_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/EU_and_NonEU_migration_2012to2021_Nov23.csv")%>% 
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame()
+
+
+```
+
+
+```{r setup_3,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Calculations for plotting components
+
+London_population <- input_comp_data_long %>%
+    filter(Component == "Population") %>%
+    group_by(Component) %>% 
+   mutate(indexed_pop = (Value/first(Value))*100) %>% 
+   mutate(Year_factor = as.factor(Year)) %>%
+       mutate(label = if_else(Year == max(Year), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_births <- input_comp_data_long %>%
+    filter(Component == "Births") %>%
+    group_by(Component) %>% 
+   mutate(indexed_births = (Value/first(Value))*100) %>% 
+   mutate(Year_factor = as.factor(Year)) %>%
+       mutate(label = if_else(Year == max(Year), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Natchange <- input_comp_data_long %>%
+    filter(Component == "Natchange") %>%
+    group_by(Component) %>% 
+   mutate(indexed_natchange = (Value/first(Value))*100) %>% 
+   mutate(Year_factor = as.factor(Year)) %>%
+       mutate(label = if_else(Year == max(Year), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Domnet <- input_comp_data_long %>%
+    filter(Component == "Dom_net") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Domnet = (Value/first(Value))*100) %>% 
+   mutate(Year_factor = as.factor(Year)) %>%
+       mutate(label = if_else(Year == max(Year), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Intnet <- input_comp_data_long %>%
+    filter(Component == "Int_net") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Year_factor = as.factor(Year)) %>%
+       mutate(label = if_else(Year == max(Year), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+
+
+```
+
+```{r fig_lines_1, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of indexed components
+
+London_Components_lines_indexed <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_population, aes(x = Year_factor, y = indexed_pop, group = 1), 
+             color = '#943fa6', size = 1) +
+   geom_label_repel(data = London_population, aes(x = Year_factor, y = indexed_pop, label = label), 
+                    color = '#943fa6', nudge_x = 1.5) +
+    geom_line(data = London_Intnet, aes(x = Year_factor, y = indexed_Intnet, group = 1), 
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_Intnet, aes(x = Year_factor, y = indexed_Intnet, label = label), 
+                    color = '#5ea15d', nudge_x = 1.5) +
+   geom_line(data = London_Natchange, aes(x = Year_factor, y =indexed_natchange, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_Natchange, aes(x = Year_factor, y = indexed_natchange, label = label), 
+                    color = '#d82222', nudge_x = 1.5) +
+   geom_line(data = London_Domnet, aes(x = Year_factor, y = indexed_Domnet, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_Domnet, aes(x = Year_factor, y = indexed_Domnet, label = label),  
+                    color = '#6da7de', nudge_x = 1.5) +
+    geom_hline(yintercept=0)+
+    scale_y_continuous(labels = label_number(suffix = "%", big.mark = ","))+  #scale = 1e-3, 
+    theme(plot.title = element_text(size = 16)) +
+    labs(title= "Components of change, London, 2011 - 2022, proportional change since 2011", 
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_Components_lines_indexed
+
+
+ggsave (filename = (paste0(chart_dir, "London_Components_lines_indexed.png")),
+         plot = London_Components_lines_indexed,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```
+
+
+```{r fig_lines_2, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs components
+
+
+London_Components_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_Intnet, aes(x = Year_factor, y = Value/1000, group = 1), 
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_Intnet, aes(x = Year_factor, y = Value/1000, label = label), 
+                    color = '#5ea15d', nudge_x = 1.5) +
+   geom_line(data = London_Natchange, aes(x = Year_factor, y = Value/1000, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_Natchange, aes(x =  Year_factor, y = Value/1000, label = label), 
+                    color = '#d82222', nudge_x = 1.5) +
+   geom_line(data = London_Domnet, aes(x = Year_factor, y = Value/1000, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_Domnet, aes(x =Year_factor, y = Value/1000, label = label),  
+                    color = '#6da7de', nudge_x = 1.5) +
+    geom_hline(yintercept=0)+
+    scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
+    theme(plot.title = element_text(size = 16)) +
+    labs(title= "Components of change, London, 2011 - 2022",
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_Components_lines_abs
+
+
+ggsave (filename = (paste0(chart_dir, "London_Components_lines_abs.png")),
+         plot = London_Components_lines_abs,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+
+```{r setup_4,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# International migration
+
+London_Intin <- input_intmig_data_long %>%
+    filter(Component == "Immigration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intin = (Value/first(Value))*100) %>% 
+  mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Intout <- input_intmig_data_long %>%
+    filter(Component == "Emmigration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intout = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Intnet <- input_intmig_data_long %>%
+    filter(Component == "Net migration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+
+
+```
+
+
+```{r fig_lines_4, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of indexed change
+
+London_Intmig_lines_indexed <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_Intnet, aes(x = date, y = indexed_Intnet, group = 1), #linetype = Estimates_factor
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_Intnet, aes(x = date, y = indexed_Intnet, label = label), 
+                    color = '#5ea15d', nudge_x = 200) +
+   geom_line(data = London_Intout, aes(x = date, y =indexed_Intout, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_Intout, aes(x = date, y = indexed_Intout, label = label), 
+                    color = '#d82222', nudge_x = 200) +
+   geom_line(data = London_Intin, aes(x = date, y = indexed_Intin, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_Intin, aes(x = date, y = indexed_Intin, label = label),  
+                    color = '#6da7de', nudge_x = 200) +
+    geom_hline(yintercept=0)+
+    scale_y_continuous(labels = label_number(suffix = "%", big.mark = ","))+  #scale = 1e-3, 
+    scale_x_date(date_labels = "%b-%Y") +
+    theme(plot.title = element_text(size = 16)) +
+   theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+    labs(title= "International migration, UK, 2018 - 2023 (provisional), proportional change", 
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_Intmig_lines_indexed
+
+
+ggsave (filename = (paste0(chart_dir, "London_Intmig_lines_indexed.png")),
+         plot = London_Intmig_lines_indexed,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```
+
+
+```{r fig_lines_5, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs 
+
+London_Intmig_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_Intnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_Intnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#5ea15d', nudge_x = 200) +
+       geom_ribbon(data=London_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+   geom_line(data = London_Intout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_Intout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#d82222', nudge_x = 200) +
+       geom_ribbon(data=London_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+   geom_line(data = London_Intin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_Intin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#6da7de', nudge_x = 200) +
+     geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+    geom_hline(yintercept=0)+
+     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
+    scale_x_date(date_labels = "%b-%Y") +
+    theme(plot.title = element_text(size = 16)) +
+     theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    labs(title= "International migration, UK, 2018 - 2023 (provisional)",
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_Intmig_lines_abs
+
+
+ggsave (filename = (paste0(chart_dir, "London_Intmig_lines_abs.png")),
+         plot = London_Intmig_lines_abs,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+
+```{r setup_5,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# International migration using data from 2012
+
+London_Intin <- input_intmig_extradata_long %>%
+    filter(Component == "Immigration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intin = (Value/first(Value))*100) %>% 
+  mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Intout <- input_intmig_extradata_long %>%
+    filter(Component == "Emmigration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intout = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_Intnet <- input_intmig_extradata_long %>%
+    filter(Component == "Net migration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+
+
+```
+
+
+```{r fig_lines_6, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs values
+
+London_Intmig_extra_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_Intnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_Intnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#5ea15d', nudge_x = 200) +
+       geom_ribbon(data=London_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+   geom_line(data = London_Intout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_Intout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#d82222', nudge_x = 200) +
+       geom_ribbon(data=London_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+   geom_line(data = London_Intin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_Intin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#6da7de', nudge_x = 200) +
+     geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+    geom_hline(yintercept=0)+
+     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
+    scale_x_date(date_labels = "%b-%Y") +
+    theme(plot.title = element_text(size = 16)) +
+     theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    labs(title= "International migration, UK, 2012 - 2023 (provisional)",
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_Intmig_extra_lines_abs
+
+
+ggsave (filename = (paste0(chart_dir, "London_Intmig_extra_lines_abs.png")),
+         plot = London_Intmig_extra_lines_abs,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+
+
+```{r setup_6,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# EU migration using data from 2012
+
+London_EUIntin <- input_EUmig_extradata_long %>%
+    filter(Component == "Immigration") %>%
+      filter(Region == "EU") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intin = (Value/first(Value))*100) %>% 
+  mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_EUIntout <- input_EUmig_extradata_long %>%
+    filter(Component == "Emmigration") %>%
+      filter(Region == "EU") %>%
+    group_by(Region) %>%  
+   mutate(indexed_Intout = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_EUIntnet <- input_EUmig_extradata_long %>%
+    filter(Component == "Net migration") %>%
+      filter(Region == "EU") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+
+
+```
+
+
+```{r fig_lines_7, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs values
+
+London_EUIntmig_extra_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_EUIntnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_EUIntnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#5ea15d', nudge_x = 200) +
+    geom_line(data = London_EUIntout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_EUIntout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#d82222', nudge_x = 200) +
+   geom_line(data = London_EUIntin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_EUIntin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#6da7de', nudge_x = 200) +
+    geom_hline(yintercept=0)+
+     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
+    scale_x_date(date_labels = "%b-%Y") +
+    theme(plot.title = element_text(size = 16)) +
+     theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    labs(title= "EU-related International Migration, UK, 2012 - 2021",
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_EUIntmig_extra_lines_abs
+
+
+ggsave (filename = (paste0(chart_dir, "London_EUIntmig_extra_lines_abs.png")),
+         plot = London_EUIntmig_extra_lines_abs,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+```{r setup_7,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# EU and Non_EU migration using data from 2012
+
+London_EUNonEUin <- input_EUmig_extradata_long %>%
+    filter(Component == "Immigration") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intin = (Value/first(Value))*100) %>% 
+  mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_EUNonEUout <- input_EUmig_extradata_long %>%
+    filter(Component == "Emmigration") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intout = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+London_EUNonEUnet <- input_EUmig_extradata_long %>%
+    filter(Component == "Net migration") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+
+
+```
+```{r fig_lines_8, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs values
+
+London_EUNonEU_extra_lines_abs_facet <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_EUNonEUnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#5ea15d', size = 1) +
+   geom_label_repel(data = London_EUNonEUnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#5ea15d', nudge_x = 200) +
+    geom_line(data = London_EUNonEUout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#d82222', size = 1) +
+   geom_label_repel(data = London_EUNonEUout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#d82222', nudge_x = 200) +
+   geom_line(data = London_EUNonEUin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#6da7de', size = 1) +
+   geom_label_repel(data = London_EUNonEUin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#6da7de', nudge_x = 200) +
+    geom_hline(yintercept=0)+
+     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
+    scale_x_date(date_labels = "%b-%Y") +
+    theme(plot.title = element_text(size = 16)) +
+     theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    labs(title= "International migration by EU and nonEU, UK, 2012 - 2021",
+        caption = paste0("Source: ONS, Chart: GLA demography"))+
+facet_grid(. ~ Region)
+London_EUNonEU_extra_lines_abs_facet
+
+
+ggsave (filename = (paste0(chart_dir, "London_EUNonEU_extra_lines_abs_facet.png")),
+         plot = London_EUNonEU_extra_lines_abs_facet,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```

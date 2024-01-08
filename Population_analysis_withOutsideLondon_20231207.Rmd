@@ -609,8 +609,6 @@ borough_boundaries20 <-
 
 ## Now doing map just for area around London for 2011 to 2021
 
-londonmap7_diverge2 = c('#943fa6', '#b47bbe', '#d2b4d6', '#eeeeee', '#c3e1db', '#96d3c8', '#63c5b5')
-
 # Import Region boundaries for UK
 
 south_region_boundaries <-
@@ -631,6 +629,9 @@ change_2011to2021_geog_ed <- LA_2011and2021_agezeroand10_change %>%
                                         " 28.0  - 50.00"))) %>%
   data.frame()
   
+
+londonmap7_diverge2 = c('#63c5b5','#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
+
 change_2011to2021_map_london <- change_2011to2021_geog_ed %>%
    ggplot()+
    geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.1, colour = "black" ) +
@@ -659,6 +660,14 @@ change_2011to2021_map_london <- change_2011to2021_geog_ed %>%
   
 change_2011to2021_map_london
 
+ggsave (filename = (paste0(chart_dir, "change_2011to2021_map_london.png")),
+         plot = change_2011to2021_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
 ```
 
 ```{r fig_pop_change_cohort_11, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
@@ -683,8 +692,7 @@ change_2001to2011_geog_ed <- LA_2001and2011_agezeroand10_change %>%
   data.frame()
 
 
-
-londonmap7_diverge2 = c('#943fa6', '#b47bbe', '#d2b4d6', '#eeeeee', '#c3e1db', '#96d3c8', '#63c5b5')
+londonmap7_diverge2 = c('#63c5b5','#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
 
 # Import Region boundaries for UK
 
@@ -726,5 +734,129 @@ change_2001to2011_map_london <- change_2001to2011_geog_ed %>%
   coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
 
 change_2001to2011_map_london
+
+
+ggsave (filename = (paste0(chart_dir, "change_2001to2011_map_london.png")),
+         plot = change_2001to2011_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+
+```{r setup10, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+#-----------------------------------------------------------------------
+## Compare 0 year olds in 2011 with 10 year olds in 2021
+
+
+## Compare 0-10 year olds in 2011 with 0-10 year olds in 2021
+
+LA_2011zerototen <- input_2011and2021data %>% 
+  mutate(pop2011zero = X2011) %>%
+  filter(age < 11) %>%  
+   group_by(ladcode21, laname21) %>% 
+  summarise(agg_X2011 = sum(X2011)) %>%
+  data.frame() 
+
+LA_2021zerototen <- input_2011and2021data %>% 
+  mutate(pop2021ten = X2021) %>%
+  filter(age < 11) %>%  
+ group_by(ladcode21, laname21) %>% 
+  summarise(agg_X2021 = sum(X2021)) %>%
+  data.frame()
+
+# Merge the two datasets
+
+LA_2011and2021zerototen <- LA_2011zerototen  %>%
+  left_join(LA_2021zerototen, by=c("ladcode21"="ladcode21", "laname21"="laname21")) %>% 
+  data.frame() 
+
+# calculate change
+LA_2011and2021_agezeroto10_change <- LA_2011and2021zerototen %>% 
+  group_by(ladcode21, laname21) %>% 
+  mutate(Change_2011to2021 = ((agg_X2021 - agg_X2011)*100/agg_X2011)) %>%
+  drop_na() %>%
+  data.frame()
+
+#----------------------------
+
+quantile(LA_2011and2021_agezeroto10_change$Change_2011to2021, probs = seq(0, 1, 1/5))
+
+```
+
+
+```{r fig_pop_change_zerototen, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Import LA boundaries for England and Wales 
+borough_boundaries20 <-
+  st_read("C:/Geographical/Geographies for Rent data from Yiran/ONS_rents_data_GIS_boundary/ONS_Rents_LAs_allEng_GIS_boundary.shp", quiet = TRUE)
+
+
+## Now doing map just for area around London for 2011 to 2021
+
+# Import Region boundaries for UK
+
+south_region_boundaries <-
+  st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
+    mutate(London = ifelse((RGN22CD=="E12000007"), "yes", "no")) %>%
+    filter(RGN22CD=="E12000006" | RGN22CD=="E12000007" | RGN22CD=="E12000008" )
+
+change_2011to2021_zerototen_geog <- LA_2011and2021_agezeroto10_change %>% 
+  left_join(borough_boundaries20, by=c("ladcode21"="Area_Code")) %>%
+  mutate(Perc_Cat = cut(Change_2011to2021, breaks = c(-45, -28, -16, -5, 5, 16, 28, 50),
+                             right=FALSE,
+                             labels = c(" -45.0 - -28.01",
+                                        " -28.0 - -16.01",
+                                        " -16.0 - -5.01",
+                                        " -5.0  -  4.99",
+                                        "  5.0  - 15.99",
+                                        " 16.0  - 27.99",
+                                        " 28.0  - 50.00"))) %>%
+  data.frame()
+
+
+londonmap6_diverge2 = c('#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
+
+
+change_2011to2021_zerototen_map_london <- change_2011to2021_zerototen_geog %>%
+   ggplot()+
+   geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.1, colour = "black" ) +
+  geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+  panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_manual(values = londonmap6_diverge2) + 
+  labs(title= "Inter-census change (2011 - 2021) in population age 0 - 10 y.o.", 
+              subtitle = "Using MYE instead of census data",
+       caption = paste0("Source: Home Office, Chart: GLA demography")) +
+   labs(fill = "% change") + 
+  guides(alpha="none") +
+  coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
+
+change_2011to2021_zerototen_map_london
+
+ggsave (filename = (paste0(chart_dir, "change_2011to2021_zerototen_map_london.png")),
+         plot = change_2011to2021_zerototen_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
 
 ```
