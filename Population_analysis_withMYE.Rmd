@@ -399,7 +399,7 @@ int_mig_net_abs_map_int
 
 ```
 
-```{r fig_int_mig_line_abs2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+```{r fig_int_mig_line_abs2, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
 MYE2022data_ed <- MYE2022data %>%
   mutate(Int_in_K = International.Migration.Inflow/1000) %>% 
@@ -408,22 +408,31 @@ MYE2022data_ed <- MYE2022data %>%
   mutate(Name = fct_reorder(Name, Int_net_K)) %>%
   data.frame()
 
-colours = c("International in-migration" = "red", "International out-migration" = "blue", "Net International migration" = "black")
+colours = c("Immigration" = "#6da7de", "Emmigration" = "#d82222", "Net International migration" = "black")
 
 # bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
 
 int_mig_seg2 <- ggplot(data = MYE2022data_ed) +
   theme_gla() +
-  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "International out-migration"), size = 5, lineend = "butt", alpha = 0.5) +
-  geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "International in-migration"), size = 2, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emmigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
   #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
   geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=1.5, shape=21, fill="white") +
   scale_color_manual(name = "", values = colours) +
   scale_shape_manual(name = "", values = colours) +
+  scale_x_continuous(labels = label_number(suffix = "K"))+  
   labs(title = "International migration",
        subtitle = "Population flows (thousand/year)",
        caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
-guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+
+ggsave (filename = (paste0(chart_dir, "Int_mig_London_boroughs.png")),
+         plot = int_mig_seg2,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
 
 int_mig_seg2
 

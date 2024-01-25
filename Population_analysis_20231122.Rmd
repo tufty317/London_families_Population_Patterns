@@ -33,7 +33,7 @@ library(scales)
 library(forcats)
 
 data_dir <- 'DATA/'
-chart_dir <- 'CHARTS/'
+chart_dir <- 'C:/Families/Charts/'
 
 #colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
 
@@ -135,7 +135,7 @@ Census_total2 <- Census_total_byLondon %>%
 
 ```{r fig_pop_pyramid_SYA, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
-## population pyramic with 2011 data on the left and 2021 on the right
+## population pyramid with 2011 data on the left and 2021 on the right
 
 Census_total_byLondon %>%
   mutate(population = ifelse(census=="2011", Sum_value*(-1),
@@ -157,6 +157,39 @@ Census_total_byLondon %>%
 #          width = 9,
 #          height = 5.56,
 #          units = "in")
+
+
+
+```
+
+
+
+```{r fig_pop_pyramid2_SYA, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Do bar chart instead of population pyramid, with just and 2021 on the right
+
+London_ageStructure_2021 <- Census_total_byLondon %>%
+    mutate(census_factor = as.factor(census)) %>%
+    filter(census == "2011") %>% 
+    ggplot(aes(x = Age_code, y = Sum_value/1000)) + 
+    theme_gla()+
+    geom_bar(aes(fill = ""), stat = "identity", fill="#943fa6") +
+    scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+ # scale = 1e-3
+    coord_flip() +
+  theme(axis.text = element_text(size = 16)) +
+    labs(title= "Age structure of London in 2021", 
+         x = "Age structure of London in 2021",
+         y = "Population (thousands)",
+     caption = paste0("Source: ONS, Chart: GLA demography"))
+London_ageStructure_2021 
+
+ggsave (filename = (paste0(chart_dir, "London_ageStructure_2021.png")),
+         plot = London_ageStructure_2021,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 12,
+         units = "in")
 
 
 
@@ -363,6 +396,9 @@ Census_change_byLondon2 <- London_calc2  %>%
     geom_bar(stat = "identity") +
     coord_flip() +
     theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+    theme(axis.text = element_text(size = 16)) +
+    scale_y_continuous(labels = label_number(suffix = "%"))+  
+    theme(strip.text.x = element_text(size = 16)) +
     guides(fill = "none")+
     labs(title= "Percentage change in London's population by age group, comparing 2011 with 2021", 
          x = "Age",
@@ -371,6 +407,17 @@ Census_change_byLondon2 <- London_calc2  %>%
     facet_grid(. ~ Inner_factor) +
     scale_fill_manual(values = catcolour2) 
 Census_change_byLondon2
+
+
+ggsave (filename = (paste0(chart_dir, "London_ageStructure_change.png")),
+         plot = Census_change_byLondon2,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 9,
+         units = "in")
+
+
 
 
 ```

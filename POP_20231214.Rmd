@@ -96,8 +96,9 @@ London_Natchange <- input_comp_data_long %>%
     group_by(Component) %>% 
    mutate(indexed_natchange = (Value/first(Value))*100) %>% 
    mutate(Year_factor = as.factor(Year)) %>%
+  mutate(Label = "Natural Change") %>%
        mutate(label = if_else(Year == max(Year), 
-                         as.character(Component), NA_character_)) %>%
+                         as.character(Label), NA_character_)) %>%
   data.frame()
 
 London_Domnet <- input_comp_data_long %>%
@@ -105,8 +106,9 @@ London_Domnet <- input_comp_data_long %>%
     group_by(Component) %>% 
    mutate(indexed_Domnet = (Value/first(Value))*100) %>% 
    mutate(Year_factor = as.factor(Year)) %>%
+    mutate(Label = "Net domestic migration") %>%
        mutate(label = if_else(Year == max(Year), 
-                         as.character(Component), NA_character_)) %>%
+                         as.character(Label), NA_character_)) %>%
   data.frame()
 
 London_Intnet <- input_comp_data_long %>%
@@ -114,8 +116,9 @@ London_Intnet <- input_comp_data_long %>%
     group_by(Component) %>% 
    mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
    mutate(Year_factor = as.factor(Year)) %>%
+     mutate(Label = "Net international migration") %>%
        mutate(label = if_else(Year == max(Year), 
-                         as.character(Component), NA_character_)) %>%
+                         as.character(Label), NA_character_)) %>%
   data.frame()
 
 
@@ -140,11 +143,11 @@ London_Components_lines_indexed <-
    geom_line(data = London_Natchange, aes(x = Year_factor, y =indexed_natchange, group = 1), 
              color = '#d82222', size = 1) +
    geom_label_repel(data = London_Natchange, aes(x = Year_factor, y = indexed_natchange, label = label), 
-                    color = '#d82222', nudge_x = 1.5) +
+                    color = '#d82222', nudge_x = 1.5, nudge_y = -20) +
    geom_line(data = London_Domnet, aes(x = Year_factor, y = indexed_Domnet, group = 1), 
              color = '#6da7de', size = 1) +
    geom_label_repel(data = London_Domnet, aes(x = Year_factor, y = indexed_Domnet, label = label),  
-                    color = '#6da7de', nudge_x = 1.5) +
+                    color = '#6da7de', nudge_x = 1.5, nudge_y = -20) +
     geom_hline(yintercept=0)+
     scale_y_continuous(labels = label_number(suffix = "%", big.mark = ","))+  #scale = 1e-3, 
     theme(plot.title = element_text(size = 16)) +
@@ -175,15 +178,15 @@ London_Components_lines_abs <-
    geom_line(data = London_Intnet, aes(x = Year_factor, y = Value/1000, group = 1), 
              color = '#5ea15d', size = 1) +
    geom_label_repel(data = London_Intnet, aes(x = Year_factor, y = Value/1000, label = label), 
-                    color = '#5ea15d', nudge_x = 1.5) +
+                    color = '#5ea15d', nudge_x = 2, nudge_y = 10) +
    geom_line(data = London_Natchange, aes(x = Year_factor, y = Value/1000, group = 1), 
              color = '#d82222', size = 1) +
    geom_label_repel(data = London_Natchange, aes(x =  Year_factor, y = Value/1000, label = label), 
-                    color = '#d82222', nudge_x = 1.5) +
+                    color = '#d82222', nudge_x = 2, nudge_y = -15) +
    geom_line(data = London_Domnet, aes(x = Year_factor, y = Value/1000, group = 1), 
              color = '#6da7de', size = 1) +
    geom_label_repel(data = London_Domnet, aes(x =Year_factor, y = Value/1000, label = label),  
-                    color = '#6da7de', nudge_x = 1.5) +
+                    color = '#6da7de', nudge_x = 2, nudge_y = 10) +
     geom_hline(yintercept=0)+
     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
     theme(plot.title = element_text(size = 16)) +
@@ -376,23 +379,29 @@ London_Intmig_extra_lines_abs <-
    geom_line(data = London_Intnet, aes(x = date, y = Value/1000, group = 1), 
              color = '#5ea15d', size = 1) +
    geom_label_repel(data = London_Intnet, aes(x = date, y = Value/1000, label = label), 
-                    color = '#5ea15d', nudge_x = 200) +
-       geom_ribbon(data=London_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+                    color = '#5ea15d', nudge_x = 300) +
+       geom_ribbon(data=London_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                   alpha= 0.2, linetype=3) +
    geom_line(data = London_Intout, aes(x = date, y = Value/1000, group = 1), 
              color = '#d82222', size = 1) +
    geom_label_repel(data = London_Intout, aes(x =  date, y = Value/1000, label = label), 
-                    color = '#d82222', nudge_x = 200) +
-       geom_ribbon(data=London_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+                    color = '#d82222', nudge_x = 300) +
+       geom_ribbon(data=London_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                   alpha= 0.2, linetype=3) +
    geom_line(data = London_Intin, aes(x = date, y = Value/1000, group = 1), 
              color = '#6da7de', size = 1) +
    geom_label_repel(data = London_Intin, aes(x = date, y = Value/1000, label = label),  
-                    color = '#6da7de', nudge_x = 200) +
-     geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),alpha=0.3) +
+                    color = '#6da7de', nudge_x = 300) +
+     geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                 alpha= 0.2, linetype=3) +
     geom_hline(yintercept=0)+
      scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
-    scale_x_date(date_labels = "%b-%Y") +
-    theme(plot.title = element_text(size = 16)) +
-     theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    scale_x_date(date_breaks = "2 years", 
+       #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
+               limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
+           date_labels="%b\n%Y") +
+      theme(plot.title = element_text(size = 16)) +
+  #   theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
     labs(title= "International migration, UK, 2012 - 2023 (provisional)",
         caption = paste0("Source: ONS, Chart: GLA demography"))
 London_Intmig_extra_lines_abs
@@ -474,9 +483,13 @@ London_EUIntmig_extra_lines_abs <-
                     color = '#6da7de', nudge_x = 200) +
     geom_hline(yintercept=0)+
      scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
-    scale_x_date(date_labels = "%b-%Y") +
+  #  scale_x_date(date_labels = "%b-%Y") +
+     scale_x_date(date_breaks = "2 years", 
+       #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
+               limits = as.Date(c('06/2011', '06/2023'), format="%m/%Y"),
+           date_labels="%b\n%Y") +
     theme(plot.title = element_text(size = 16)) +
-     theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+ #    theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
     labs(title= "EU-related International Migration, UK, 2012 - 2021",
         caption = paste0("Source: ONS, Chart: GLA demography"))
 London_EUIntmig_extra_lines_abs
@@ -530,6 +543,7 @@ London_EUNonEUnet <- input_EUmig_extradata_long %>%
 
 
 ```
+
 ```{r fig_lines_8, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
 
 # Line plot of abs values

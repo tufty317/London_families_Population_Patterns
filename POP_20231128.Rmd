@@ -920,23 +920,37 @@ London_pop_grouped <- London_pop_zone %>%
 
 ## Plotting London population by age-group, over time
 
-London_pop_grouped_line <- London_pop_grouped %>%
+# Create new category so can highlight certain lines
+
+London_pop_grouped_ed <- London_pop_grouped %>%
   mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
-  ggplot(aes(x = year, y = Sum_value, group = agegroups, color = agegroups, text = paste("Year: ", year,
-                         "<br>Age group: ", agegroups,
-                         "<br>Population: ", round(Sum_value, digits = 3))
-)) +
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
+  data.frame()
+
+London_pop_grouped_line <- London_pop_grouped_ed %>%
+    ggplot(aes(x = year, y = Sum_value/1000000, group = agegroups, color = agegroups)) +
   theme_gla() +
-  #theme(legend.position = "right") +
+ geom_line(aes(size=highlight_flag)) +  #, alpha=highlight_flag
+  scale_size_manual( values = c(0.2, 2)) +
+ # scale_alpha_manual( values = c(NA, 1)) +
   scale_color_discrete(guide = FALSE) +
-  geom_line() +
-  geom_label_repel(aes(label = label), nudge_x = 0.1)+
- # scale_y_continuous(label = unit_format(unit = "K"))+
-  scale_y_continuous(labels = label_number(suffix = "K", scale = 1e-3, big.mark = ","))+
+  geom_label_repel(aes(label = label), nudge_x = 0.1) +
+  scale_y_continuous(labels = label_number(suffix = "M")) +
+  scale_x_continuous(limits = c (1993, 2023), breaks = c(1993, 1997, 2001, 2005, 2009, 2013, 2017, 2021)) + 
+#  scale_y_continuous(labels = label_number(suffix = "K", scale = 1e-3, big.mark = ","))+
+    theme(legend.position =" none") +
   labs(title= "Population in London by age group, 1993 - 2021", 
-       subtitle = "Population in thousands",
+       subtitle = "Population in millions",
        caption = paste0("Source: ONS, Chart: GLA demography"))
 London_pop_grouped_line
+
+ggsave (filename = (paste0(chart_dir, "London_pop_grouped_line.png")),
+         plot = London_pop_grouped_line,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
 
 
 ```
@@ -949,25 +963,29 @@ London_pop_grouped_line
 London_pop_grouped_ind <- London_pop_grouped %>%
   group_by(agegroups) %>% 
   mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
-  data.frame()
-  
-London_pop_grouped_line <- London_pop_grouped_ind %>%
   mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
-  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
+  data.frame()
+
+London_pop_grouped_ind_line_1993 <- London_pop_grouped_ind %>%
+   ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
                          "<br>Age group: ", agegroups,
                          "<br>Indexed Population: ", round(indexed_pop, digits = 3))
 )) +
   theme_gla() +
  # theme(legend.position = "right") +
   scale_color_discrete(guide = FALSE) +
-  geom_line() +
+    geom_line(aes(size=highlight_flag, alpha=highlight_flag)) +  
+  scale_size_manual( values = c(0.2, 2)) +
+  scale_alpha_manual( values = c(0.8, 1)) +
+    theme(legend.position =" none") +
+  geom_label_repel(aes(label = label), nudge_x = 0.1) +
   geom_hline(yintercept=100)+
-  ylim(80, 160) +  
+  ylim(80, 160) +
   scale_y_continuous(labels = label_number(suffix = "%")) +
-  geom_label_repel(aes(label = label), nudge_x = 0.1)+
   labs(title= "Population in London by age group, indexed to 1993, 1993 - 2021", 
        caption = paste0("Source: ONS, Chart: GLA demography"))
-London_pop_grouped_line
+London_pop_grouped_ind_line_1993
 
 
 ```
@@ -977,29 +995,33 @@ London_pop_grouped_line
 
 ## Plotting London population by age-group, indexed values to 2001
 
-London_pop_grouped_ind <- London_pop_grouped %>%
+London_pop_grouped_ind_2001 <- London_pop_grouped %>%
   group_by(agegroups) %>% 
   filter(year > 2000) %>%
   mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
+  mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
   data.frame()
-  
-London_pop_grouped_line <- London_pop_grouped_ind %>%
-    mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+
+London_pop_grouped_ind_line_2001 <- London_pop_grouped_ind_2001 %>%
   ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
                          "<br>Age group: ", agegroups,
                          "<br>Indexed Population: ", round(indexed_pop, digits = 3))
 )) +
   theme_gla() +
-  scale_color_discrete(guide = FALSE) +
-  #theme(legend.position = "right") +
+ scale_color_discrete(guide = FALSE) +
+    geom_line(aes(size=highlight_flag, alpha=highlight_flag)) +  
+  scale_size_manual( values = c(0.2, 2)) +
+  scale_alpha_manual( values = c(0.8, 1)) +
+  geom_label_repel(aes(label = label), nudge_x = 0.1) +
+    theme(legend.position =" none") +
   geom_line() +
   geom_hline(yintercept=100)+
   scale_y_continuous(labels = label_number(suffix = "%")) +
  #  ylim(80, 160) +  
-  geom_label_repel(aes(label = label), nudge_x = 0.1)+
-  labs(title= "Population in London by age group, indexed to 2001, 2001 - 2021", 
+   labs(title= "Population in London by age group, indexed to 2001, 2001 - 2021", 
        caption = paste0("Source: ONS, Chart: GLA demography"))
-London_pop_grouped_line
+London_pop_grouped_ind_line_2001
 
 
 ```
@@ -1008,28 +1030,33 @@ London_pop_grouped_line
 
 ## Plotting London population by age-group, indexed values to 2011
 
-London_pop_grouped_ind <- London_pop_grouped %>%
+London_pop_grouped_ind_2011 <- London_pop_grouped %>%
   group_by(agegroups) %>% 
   filter(year > 2010) %>%
   mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
-  data.frame()
-  
-London_pop_grouped_line <- London_pop_grouped_ind %>%
   mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
+  data.frame()
+
+London_pop_grouped_ind_line_2011 <- London_pop_grouped_ind_2011 %>%
   ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
                          "<br>Age group: ", agegroups,
                          "<br>Indexed Population: ", round(indexed_pop, digits = 3))
 )) +
   theme_gla() +
-  scale_color_discrete(guide = FALSE) +
-#  theme(legend.position = "right") +
+ scale_color_discrete(guide = FALSE) +
+    geom_line(aes(size=highlight_flag, alpha=highlight_flag)) +  
+  scale_size_manual( values = c(0.2, 2)) +
+  scale_alpha_manual( values = c(0.8, 1)) +
+  geom_label_repel(aes(label = label), nudge_x = 0.1) +
+    theme(legend.position =" none") +
   geom_line() +
   geom_hline(yintercept=100)+
   scale_y_continuous(labels = label_number(suffix = "%")) +
-  geom_label_repel(aes(label = label), nudge_x = 0.1)+
-  labs(title= "Population in London by age group, indexed to 2011, 2011 - 2021", 
+ #  ylim(80, 160) +  
+   labs(title= "Population in London by age group, indexed to 2011, 2011 - 2021", 
        caption = paste0("Source: ONS, Chart: GLA demography"))
-London_pop_grouped_line
+London_pop_grouped_ind_line_2011
 
 
 ```
@@ -1038,7 +1065,7 @@ London_pop_grouped_line
 
 # Now facet by zone 
 
-# Group by age-group
+# Group by age-group and zone
 
 London_pop_zone_grouped <- London_pop_zone %>%
   group_by(agegroups, year, Inner_factor) %>% 
@@ -1047,33 +1074,41 @@ London_pop_zone_grouped <- London_pop_zone %>%
 
 ## Plotting London population by age-group and zone, indexed values to 2011
 
-London_pop_grouped_zone_ind <- London_pop_zone_grouped %>%
+London_pop_zone_grouped_ind <- London_pop_zone_grouped %>%
   group_by(agegroups, Inner_factor) %>% 
   filter(year > 2010) %>%
-  mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
-  data.frame()
-  
-London_pop_grouped_line_facet <- London_pop_grouped_zone_ind %>%
+    mutate(indexed_pop = (Sum_value/first(Sum_value))*100) %>% 
   mutate(label = if_else(year == max(year), as.character(agegroups),NA_character_)) %>%
-  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups, text = paste("Year: ", year,
-                         "<br>Age group: ", agegroups,
-                         "<br>Indexed Population: ", round(indexed_pop, digits = 3))
-)) +
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
+  data.frame()
+
+London_pop_grouped_line_facet <- London_pop_zone_grouped_ind %>%
+  ggplot(aes(x = year, y = indexed_pop, group = agegroups, color = agegroups)) +
   theme_gla() +
-#  theme(legend.position = "right") +
+   geom_line(aes(size=highlight_flag)) +  #, alpha=highlight_flag
+  scale_size_manual(values = c(0.2, 2), guide = FALSE) +
+#  scale_alpha_manual(values = c(0.5, 1), guide = FALSE) +
+  geom_label_repel(aes(label = label), nudge_x = 1) +
   scale_color_discrete(guide = FALSE) +
+#   theme(legend.position =" none") +
   geom_line() +
   geom_hline(yintercept=100)+
-#  ylim(0, 150) +
-  geom_label_repel(aes(label = label), nudge_x = 0.2)+
+  theme(strip.text.x = element_text(size = 16)) +
   scale_y_continuous(labels = label_number(suffix = "%")) +
-  labs(title= "Population in Inner and Outer London by age group, indexed to 2011, 2011 - 2021", 
+    scale_x_continuous(limits = c (2011, 2023), breaks = c(2011, 2013, 2015, 2017, 2019, 2021)) +  
+   labs(title= "Population in London by age group, indexed to 2011, 2011 - 2021", 
        caption = paste0("Source: ONS, Chart: GLA demography")) +
-facet_grid(. ~ Inner_factor)
+  facet_grid(. ~ Inner_factor)
 London_pop_grouped_line_facet
 
 
-
+ggsave (filename = (paste0(chart_dir, "London_pop_grouped_line_facet.png")),
+         plot = London_pop_grouped_line_facet,
+         device = "png",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
 
 ```
 
