@@ -209,6 +209,24 @@ London_calc <- London_data_wide %>%
   mutate(changePerc = ((X2021 - X2011)*100/X2011)) %>%
   data.frame()
 
+# Analysis on 1/2/24 
+
+VeryYoungChild_total <- London_calc %>% 
+  filter(Age_code < 5) %>%
+  summarise(Total_X2011 = sum(X2011), Total_X2021 = sum(X2021)) %>%
+  data.frame()
+
+YoungChild_total <- London_calc %>% 
+  filter(Age_code < 11) %>%
+  summarise(Total_X2011 = sum(X2011), Total_X2021 = sum(X2021)) %>%
+  data.frame()
+
+Child_total <- London_calc %>% 
+  filter(Age_code < 19) %>%
+  summarise(Total_X2011 = sum(X2011), Total_X2021 = sum(X2021)) %>%
+  data.frame()
+
+
 ```
 
 
