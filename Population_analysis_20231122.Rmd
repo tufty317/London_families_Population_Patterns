@@ -168,12 +168,26 @@ Census_total_byLondon %>%
 
 ## Do bar chart instead of population pyramid, with just and 2021 on the right
 
+
+
 London_ageStructure_2021 <- Census_total_byLondon %>%
     mutate(census_factor = as.factor(census)) %>%
+    filter(census == "2021") %>% 
+  data.frame()
+
+
+London_ageStructure_2011 <- Census_total_byLondon %>%
+    mutate(census_factor = as.factor(census)) %>%
     filter(census == "2011") %>% 
+  data.frame()
+
+
+
+London_ageStructure <- London_ageStructure_2021 %>% 
     ggplot(aes(x = Age_code, y = Sum_value/1000)) + 
     theme_gla()+
-    geom_bar(aes(fill = ""), stat = "identity", fill="#943fa6") +
+    geom_bar(data = London_ageStructure_2021, aes(fill = ""), stat = "identity", fill="#943fa6") +
+    geom_line(data = London_ageStructure_2011, aes(x = Age_code, y = Sum_value/1000)) +
     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+ # scale = 1e-3
     coord_flip() +
   theme(axis.text = element_text(size = 16)) +
@@ -181,10 +195,10 @@ London_ageStructure_2021 <- Census_total_byLondon %>%
          x = "Age structure of London in 2021",
          y = "Population (thousands)",
      caption = paste0("Source: ONS, Chart: GLA demography"))
-London_ageStructure_2021 
+London_ageStructure
 
-ggsave (filename = (paste0(chart_dir, "London_ageStructure_2021.png")),
-         plot = London_ageStructure_2021,
+ggsave (filename = (paste0(chart_dir, "London_ageStructure.png")),
+         plot = London_ageStructure,
          device = "png",
          dpi=600,
          width = 9,
