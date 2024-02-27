@@ -61,7 +61,7 @@ input_intmig_extradata_long <- fread("C:/Families/London_families_Pop_Patterns/D
   mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
    data.frame()
 
-input_EUmig_extradata_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/EU_and_NonEU_migration_2012to2021_Nov23.csv")%>% 
+input_EUmig_extradata_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/EU_and_NonEU_migration_2012to2023_Nov23.csv")%>% 
   mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
    data.frame()
 
@@ -395,7 +395,7 @@ London_Intmig_extra_lines_abs <-
      geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
                  alpha= 0.2, linetype=3) +
     geom_hline(yintercept=0)+
-     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
+     scale_y_continuous(labels = label_number(big.mark = ","))+ # suffix = "K", #scale = 1e-3, 
     scale_x_date(date_breaks = "2 years", 
        #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
                limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
@@ -472,7 +472,7 @@ London_EUIntmig_extra_lines_abs <-
    geom_line(data = London_EUIntnet, aes(x = date, y = Value/1000, group = 1), 
              color = '#5ea15d', size = 1) +
    geom_label_repel(data = London_EUIntnet, aes(x = date, y = Value/1000, label = label), 
-                    color = '#5ea15d', nudge_x = 200) +
+                    color = '#5ea15d', nudge_x = 200, nudge_y = 25) +
     geom_line(data = London_EUIntout, aes(x = date, y = Value/1000, group = 1), 
              color = '#d82222', size = 1) +
    geom_label_repel(data = London_EUIntout, aes(x =  date, y = Value/1000, label = label), 
@@ -482,15 +482,14 @@ London_EUIntmig_extra_lines_abs <-
    geom_label_repel(data = London_EUIntin, aes(x = date, y = Value/1000, label = label),  
                     color = '#6da7de', nudge_x = 200) +
     geom_hline(yintercept=0)+
-     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+  #scale = 1e-3, 
-  #  scale_x_date(date_labels = "%b-%Y") +
-     scale_x_date(date_breaks = "2 years", 
+    scale_y_continuous(labels = label_number(big.mark = ","))+ # suffix = "K", #scale = 1e-3, 
+    scale_x_date(date_breaks = "2 years", 
        #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
-               limits = as.Date(c('06/2011', '06/2023'), format="%m/%Y"),
+               limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
            date_labels="%b\n%Y") +
     theme(plot.title = element_text(size = 16)) +
  #    theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
-    labs(title= "EU-related International Migration, UK, 2012 - 2021",
+    labs(title= "EU-related International Migration, UK, 2012 - 2023",
         caption = paste0("Source: ONS, Chart: GLA demography"))
 London_EUIntmig_extra_lines_abs
 
