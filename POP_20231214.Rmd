@@ -377,21 +377,21 @@ London_Intmig_extra_lines_abs <-
    ggplot() +
   theme_gla() +
    geom_line(data = London_Intnet, aes(x = date, y = Value/1000, group = 1), 
-             color = '#5ea15d', size = 1) +
+             color = '#eb861e', size = 2) +
    geom_label_repel(data = London_Intnet, aes(x = date, y = Value/1000, label = label), 
-                    color = '#5ea15d', nudge_x = 300) +
+                    color = '#eb861e', nudge_x = 300) +
        geom_ribbon(data=London_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
                    alpha= 0.2, linetype=3) +
    geom_line(data = London_Intout, aes(x = date, y = Value/1000, group = 1), 
-             color = '#d82222', size = 1) +
+             color = '#63c5b5', size = 2) +
    geom_label_repel(data = London_Intout, aes(x =  date, y = Value/1000, label = label), 
-                    color = '#d82222', nudge_x = 300) +
+                    color = '#63c5b5', nudge_x = 300) +
        geom_ribbon(data=London_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
                    alpha= 0.2, linetype=3) +
    geom_line(data = London_Intin, aes(x = date, y = Value/1000, group = 1), 
-             color = '#6da7de', size = 1) +
+             color = '#943fa6', size = 2) +
    geom_label_repel(data = London_Intin, aes(x = date, y = Value/1000, label = label),  
-                    color = '#6da7de', nudge_x = 300) +
+                    color = '#943fa6', nudge_x = 300) +
      geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
                  alpha= 0.2, linetype=3) +
     geom_hline(yintercept=0)+
@@ -470,17 +470,17 @@ London_EUIntmig_extra_lines_abs <-
    ggplot() +
   theme_gla() +
    geom_line(data = London_EUIntnet, aes(x = date, y = Value/1000, group = 1), 
-             color = '#5ea15d', size = 1) +
+             color = '#eb861e', size = 2) +
    geom_label_repel(data = London_EUIntnet, aes(x = date, y = Value/1000, label = label), 
-                    color = '#5ea15d', nudge_x = 200, nudge_y = 25) +
+                    color = '#eb861e', nudge_x = 200, nudge_y = 25) +
     geom_line(data = London_EUIntout, aes(x = date, y = Value/1000, group = 1), 
-             color = '#d82222', size = 1) +
+             color = '#63c5b5', size = 2) +
    geom_label_repel(data = London_EUIntout, aes(x =  date, y = Value/1000, label = label), 
-                    color = '#d82222', nudge_x = 200) +
+                    color = '#63c5b5', nudge_x = 200) +
    geom_line(data = London_EUIntin, aes(x = date, y = Value/1000, group = 1), 
-             color = '#6da7de', size = 1) +
+             color = '#943fa6', size = 2) +
    geom_label_repel(data = London_EUIntin, aes(x = date, y = Value/1000, label = label),  
-                    color = '#6da7de', nudge_x = 200) +
+                    color = '#943fa6', nudge_x = 200) +
     geom_hline(yintercept=0)+
     scale_y_continuous(labels = label_number(big.mark = ","))+ # suffix = "K", #scale = 1e-3, 
     scale_x_date(date_breaks = "2 years", 

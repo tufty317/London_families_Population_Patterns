@@ -919,7 +919,7 @@ DepChildren_Change <- input_donaldata  %>%
 
 #quantile(LA_2011and2021_agezeroto10_change$Change_2011to2021, probs = seq(0, 1, 1/5))
 
-summary(DepChildren_Change$changePerc)
+# summary(DepChildren_Change$changePerc)
 
 south_region_boundaries <-
   st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
@@ -1002,6 +1002,8 @@ ggsave (filename = (paste0(chart_dir, " change_2011to2021_depchildren_map_london
 
 ## Map showing the change in number non-dependent children across London by Borough
 
+## NB THIS ISN'T USED IN REPORT - it's about numbers not households
+
 ## Import data
 
 input_Non_dep_childrendata <- fread(paste0(data_dir,"Non_dependent_children_Change_LondonOnly.csv"))%>% 
@@ -1057,13 +1059,13 @@ change_nondepchildren  <- change_nondepchildren_geog  %>%
   theme(legend.title = element_text(size=16)) +
   theme(legend.key.height= unit(1, 'cm'),
         legend.key.width= unit(0.7, 'cm')) +
-   labs(title = "Number of households with non-dependent children", 
+   labs(title = "Numbers of non-dependent children", 
        subtitle = "Change from Census 2011 to Census 2021",
        caption = "Source: Census 2011 & Census 2021, Chart: GLA demography") 
 change_nondepchildren
  
  
-ggsave (filename = (paste0(chart_dir, " change_nondepchildren_geog.png")),
+ggsave (filename = (paste0(chart_dir, " change_nondepchildren.png")),
          plot =  change_nondepchildren ,
          device = "png",
          dpi=600,
@@ -1073,8 +1075,8 @@ ggsave (filename = (paste0(chart_dir, " change_nondepchildren_geog.png")),
 
 ```
 
-```{r fig_pop_change_nondepHH, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
+```{r fig_pop_change_nondepHH, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
 ## making a map showing the change in number of households with non-dependent children across London by Borough
 
@@ -1106,8 +1108,8 @@ non_dep_hh_2021_geog <- input_non_dep_hh_2021 %>%
     mutate(HHCat = cut(Sum, breaks = c(3, 9, 10, 12, 20),
                              right=FALSE,
                              labels = c(" 3 -",
-                                        " 9.0 -",
-                                        "10.0 -",
+                                        " 9 -",
+                                        "10 -",
                                         "12 -"))) %>%
   data.frame()
 
@@ -1151,6 +1153,89 @@ non_dep_hh_2021_map_london
 
 ggsave (filename = (paste0(chart_dir, "non_dep_hh_2021_map_london.png")),
          plot = non_dep_hh_2021_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```
+
+```{r fig_pop_change_depHH, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## making a map showing the change in number of households with dependent children across London by Borough
+
+## Import data
+
+input_dep_hh_2021 <- fread(paste0(data_dir,"Dep_HH_2021.csv"))%>% 
+  data.frame()
+
+
+# Import LA boundaries for England and Wales 
+borough_boundaries20 <-
+  st_read("C:/Geographical/Geographies for Rent data from Yiran/ONS_rents_data_GIS_boundary/ONS_Rents_LAs_allEng_GIS_boundary.shp", quiet = TRUE)
+
+
+## Now doing map just for area around London for 2011 to 2021 
+
+
+quantile(input_dep_hh_2021$Sum)
+
+# Import Region boundaries for UK
+
+south_region_boundaries <-
+  st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
+    mutate(London = ifelse((RGN22CD=="E12000007"), "yes", "no")) %>%
+    filter(RGN22CD=="E12000006" | RGN22CD=="E12000007" | RGN22CD=="E12000008" )
+
+dep_hh_2021_geog <- input_dep_hh_2021 %>% 
+  left_join(borough_boundaries20, by=c("Area.code"="Area_Code")) %>%
+    mutate(HHCat = cut(Sum, breaks = c(7, 23, 26, 29, 40),
+                             right=FALSE,
+                             labels = c(" 7 -",
+                                        "23 -",
+                                        "26 -",
+                                        "29 -"))) %>%
+  data.frame()
+
+
+#quantile(LA_2011and2021_agezeroto10_change$Change_2011to2021)
+
+
+catgreen4 = c('#eeeeee', '#acc1aa', '#739272', '#4a6349')
+
+dep_hh_2021_map_london <- dep_hh_2021_geog %>%
+   ggplot()+
+   geom_sf(aes(geometry=geometry, fill=HHCat),lwd = 0.1, colour = "black" ) +
+  geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.text = element_text(size=16)) +
+  theme(legend.title = element_text(size=16)) +
+  theme(legend.key.height= unit(1, 'cm'),
+        legend.key.width= unit(0.7, 'cm')) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+  panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_manual(values = catgreen4) + 
+  labs(title= "Per cent of couple and lone-parent households with dependent children, 2021", 
+ caption = paste0("Source: Home Office, Chart: GLA demography")) +
+   labs(fill = "% households") + 
+  guides(alpha="none") +
+  coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
+dep_hh_2021_map_london
+
+ggsave (filename = (paste0(chart_dir, "dep_hh_2021_map_london.png")),
+         plot = dep_hh_2021_map_london,
          device = "png",
          dpi=600,
          width = 9,

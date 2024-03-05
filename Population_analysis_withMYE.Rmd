@@ -442,6 +442,8 @@ int_mig_seg2
 
 # Flip axes on 15 Feb 2024 because of James Gleeson's comment 
 
+# But I don't use this - in my mind the net value should be on the right.
+
 
 # bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
 
@@ -709,7 +711,8 @@ pop_change_adj_map_int2
 pop_change_adj_map2 <- MYE2022_geog %>%
   ggplot(aes(geometry=geometry, fill=pop_change_adj, label = Label),lwd = 0.2, colour = "black")+
   geom_sf()+
-  geom_sf_label(fill = "white", fun.geometry = sf::st_centroid) +
+  geom_sf_label(fun.geometry = sf::st_centroid, label.size = NA) +#fill = "white", 
+  # label.size = NA switches off the border to the label boxes
   theme_gla()+
    theme(plot.title = element_text(size = 16, hjust = 0.5)) +
   theme(legend.position = "right")+
@@ -733,10 +736,11 @@ pop_change_adj_map2 <- MYE2022_geog %>%
        caption = paste0("Source: ONS, Chart: GLA demography")) +
   labs(fill = "Change/1000")
 pop_change_adj_map2
-
 ```
 
-```{r fig_dom_mig_line_abs3, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+```{r fig_dom_mig_borough, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# New analysis on 28th Feb 2024
 
 MYE2022data_ed <- MYE2022data %>%
   mutate(Dom_in_K = Internal.Migration.Inflow/1000) %>% 
@@ -745,78 +749,148 @@ MYE2022data_ed <- MYE2022data %>%
   mutate(Name = fct_reorder(Name, Dom_net_K)) %>%
   data.frame()
 
-colours = c("Domestic in-migration" = "red", "Domestic out-migration" = "blue", "Net domestic migration" = "black")
-
-# bar chart where in-migration starts from zero and goes positive, and out-migration goes backwards from that value
-
-# dom_mig_seg1 <- ggplot(data = MYE2022data_ed) +
-#   theme_gla() +
-#   geom_segment(aes(x=0, y =Name, xend = Dom_in_K, yend = Name, colour = "Domestic in-migration"), size = 5, lineend = "butt", alpha = 0.5) +
-#   geom_segment(aes(x=Dom_net_K,y = Name, xend = Dom_in_K, yend=Name, colour = "Domestic out-migration"), size = 2, lineend = "butt", alpha = 0.5) +
-#   geom_point(aes(x=Dom_net_K, y = Name, colour = "Net domestic migration"), size=1.5, shape=21, fill="white") +
-#   scale_color_manual(name = "", values = colours) +
-#   scale_shape_manual(name = "", values = colours) +
-#   labs(title = "Domestic migration",
-#        subtitle = "Population flows (thousand/year)",
-#        caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
-#   guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21))))
-# 
-# 
-# dom_mig_seg1
-
-```
-
-```{r fig_dom_mig_line_abs4, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
-
+colours = c("In-migration" = "#6da7de", "Out-migration" = "#d82222", "Net Domestic migration" = "black")
 
 # bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
 
-# dom_mig_seg2 <- ggplot(data = MYE2022data_ed) +
-#   theme_gla() +
-#   geom_segment(aes(x=Dom_out_K, y =Name, xend = 0, yend = Name, colour = "Domestic out-migration"), size = 5, lineend = "butt", alpha = 0.5) +
-#   geom_segment(aes(x=Dom_out_K,y = Name, xend = Dom_net_K, yend=Name, colour = "Domestic in-migration"), size = 2, lineend = "butt", alpha = 0.5) +
-#   #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
-#   geom_point(aes(x=Dom_net_K, y = Name, colour = "Net domestic migration"), size=1.5, shape=21, fill="white") +
-#   scale_color_manual(name = "", values = colours) +
-#   scale_shape_manual(name = "", values = colours) +
-#   labs(title = "Domestic migration",
-#        subtitle = "Population flows (thousand/year)",
-#        caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
-# guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
-# 
-# 
-# dom_mig_seg2
+dom_mig_seg <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=Dom_out_K, y =Name, xend = 0, yend = Name, colour = "Out-migration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Dom_out_K,y = Name, xend = Dom_net_K, yend=Name, colour = "In-migration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=Dom_net_K, y = Name, colour = "Net Domestic migration"), size=1.5, shape=21, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+  scale_x_continuous(labels = label_number(suffix = "K"))+  
+  labs(title = "Domestic migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
 
+
+ggsave (filename = (paste0(chart_dir, "dom_mig_London_boroughs.png")),
+         plot = dom_mig_seg,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+dom_mig_seg
 
 ```
 
-```{r fig_int_mig_line_abs3, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+```{r fig_mig_line_flux1, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
-MYE2022data_ed <- MYE2022data %>%
+# create dataframe for plotting
+
+MYE2022_flux <- MYE2022data %>%
+  mutate(Dom_in_K = Internal.Migration.Inflow/1000) %>% 
+  mutate(Dom_out_K = Internal.Migration.Outflow/1000) %>%
+  mutate(Dom_flux_K = Dom_in_K + Dom_out_K) %>%
   mutate(Int_in_K = International.Migration.Inflow/1000) %>% 
-  mutate(Int_out_K = -International.Migration.Outflow/1000) %>%
-  mutate(Int_net_K = International.Migration.Net/1000) %>%
-  mutate(Name = fct_reorder(Name, Int_net_K)) %>%
+  mutate(Int_out_K = International.Migration.Outflow/1000) %>%
+  mutate(Int_flux_K = Int_in_K + Int_out_K) %>%
+  mutate(Tot_in_K = Int_in_K + Dom_in_K) %>%
+  mutate(Tot_out_K = Int_out_K + Dom_out_K) %>%
+  mutate(Tot_net_K = Tot_in_K - Tot_out_K) %>%
+  mutate(Tot_flux_K = Int_flux_K + Dom_flux_K) %>%
+  mutate(Births_K = Births/1000) %>%
+  mutate(Name = fct_reorder(Name, Tot_net_K)) %>%
+  mutate(Inner_factor= recode(Inner, "1"="Inner", "0"="Outer")) %>%
   data.frame()
 
-colours = c("International in-migration" = "red", "International out-migration" = "blue", "Net International migration" = "black")
 
-# bar chart where in-migration starts from zero and goes positive, and out-migration goes backwards from that value
+colours = c("In-migration" = "#6da7de", "Out-migration" = "#d82222", "Net Total migration" = "black", "Births" = "white")
 
-# int_mig_seg1 <- ggplot(data = MYE2022data_ed) +
-#   theme_gla() +
-#   geom_segment(aes(x=0, y =Name, xend = Int_in_K, yend = Name, colour = "International in-migration"), size = 5, lineend = "butt", alpha = 0.5) +
-#   geom_segment(aes(x=Int_net_K,y = Name, xend = Int_in_K, yend=Name, colour = "International out-migration"), size = 2, lineend = "butt", alpha = 0.5) +
-#   geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=1.5, shape=21, fill="white") +
-#   scale_color_manual(name = "", values = colours) +
-#   scale_shape_manual(name = "", values = colours) +
-#   labs(title = "International migration",
-#        subtitle = "Population flows (thousand/year)",
-#        caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
-#   guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21))))
+
+tot_mig_seg <- ggplot(data = MYE2022_flux) +
+  theme_gla() +
+  geom_segment(aes(x=Tot_out_K, y =Name, xend = 0, yend = Name, colour = "Out-migration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Tot_out_K,y = Name, xend = Tot_net_K, yend=Name, colour = "In-migration"), size = 2, lineend = "butt", alpha = 0.5) +
+  geom_point(aes(x=Tot_net_K, y = Name, colour = "Net Total migration"), size=1.5, shape=21, fill="black") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+  scale_x_continuous(labels = label_number(suffix = "K"))+  
+  labs(title = "Total migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
 # 
-# 
-# int_mig_seg1
+# ggsave (filename = (paste0(chart_dir, "tot_mig_London_boroughs.png")),
+#          plot = tot_mig_seg,
+#          device = "png",
+#          dpi=600,
+#          width = 9,
+#          units = "in")
+
+tot_mig_seg
+
 
 ```
 
+```{r fig_mig_line_flux2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Scatterplot for individual London boroughs
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+library(ggrepel)
+
+Flux_scatterplot1 <- MYE2022_flux %>%
+  ggplot(aes(x = Tot_flux_K, y = Births_K, color=Inner_factor)) +
+  geom_point(shape=18,  size = 4) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  scale_color_manual(name='London Zone:', values = catcolour2) +
+  theme_gla(x_axis_title = TRUE,  y_axis_title = TRUE, free_y_facets = TRUE)+
+  theme(legend.position = "right") + 
+  labs(x = "Total flux (thousands)", 
+       y = "Births (thousands)") +
+  geom_text_repel(aes(label = Name), size = 4) +
+  labs(title= "Scatterplot of Total flux v. births in 2022 for London boroughs", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+Flux_scatterplot1
+# 
+# ggsave (filename = (paste0(chart_dir, "SMA_London_change_2011_scatterplot.png")),
+#          plot = SMA_absChange_scatterplot2,
+#          device = "png",
+#          dpi=600,
+#          width = 9,
+#          height = 5.56,
+#          units = "in")
+
+
+```
+
+```{r fig_mig_line_flux3, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# adjust for population
+
+MYE2022_flux_adj <- MYE2022_flux %>%
+ mutate(Tot_flux_adj = Tot_flux_K*1000000/MYE2021) %>%
+  mutate(Births_adj = Births_K*1000000/MYE2021) %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+## Scatterplot for individual London boroughs
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+library(ggrepel)
+
+Flux_scatterplot2 <- MYE2022_flux_adj %>%
+  ggplot(aes(x = Tot_flux_adj, y = Births_adj, color=Inner_factor)) +
+  geom_point(shape=18,  size = 4) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  scale_color_manual(name='London Zone:', values = catcolour2) +
+  geom_smooth(method='lm', se = FALSE, linewidth=0.5) +  #linetype="dashed"
+  theme_gla(x_axis_title = TRUE,  y_axis_title = TRUE, free_y_facets = TRUE)+
+  theme(legend.position = "right") + 
+  labs(x = "Adjusted Total flux", 
+       y = "Adjusted Births") +
+  geom_text_repel(aes(label = Name), size = 4) +
+  labs(title= "Scatterplot of Total flux v. births in 2022 for London boroughs, adjusted for population", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+Flux_scatterplot2
+```
