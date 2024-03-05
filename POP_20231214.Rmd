@@ -369,7 +369,7 @@ London_Intnet <- input_intmig_extradata_long %>%
 ```
 
 
-```{r fig_lines_6, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+```{r fig_lines_6A, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
 
 # Line plot of abs values
 
@@ -407,7 +407,56 @@ London_Intmig_extra_lines_abs <-
 London_Intmig_extra_lines_abs
 
 
-ggsave (filename = (paste0(chart_dir, "London_Intmig_extra_lines_abs.png")),
+ggsave (filename = (paste0(chart_dir, "London_Intmig_extra_lines_abs_noK.png")),
+         plot = London_Intmig_extra_lines_abs,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+```{r fig_lines_6B, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs values
+
+London_Intmig_extra_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_Intnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#eb861e', size = 2) +
+   geom_label_repel(data = London_Intnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#eb861e', nudge_x = 300) +
+       geom_ribbon(data=London_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                   alpha= 0.2, linetype=3) +
+   geom_line(data = London_Intout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#63c5b5', size = 2) +
+   geom_label_repel(data = London_Intout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#63c5b5', nudge_x = 300) +
+       geom_ribbon(data=London_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                   alpha= 0.2, linetype=3) +
+   geom_line(data = London_Intin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#943fa6', size = 2) +
+   geom_label_repel(data = London_Intin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#943fa6', nudge_x = 300) +
+     geom_ribbon(data=London_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                 alpha= 0.2, linetype=3) +
+    geom_hline(yintercept=0)+
+     scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+ #scale = 1e-3, 
+    scale_x_date(date_breaks = "2 years", 
+       #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
+               limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
+           date_labels="%b\n%Y") +
+      theme(plot.title = element_text(size = 16)) +
+  #   theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    labs(title= "International migration, UK, 2012 - 2023 (provisional)",
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_Intmig_extra_lines_abs
+
+
+ggsave (filename = (paste0(chart_dir, "London_Intmig_extra_lines_abs_withK.png")),
          plot = London_Intmig_extra_lines_abs,
          device = "png",
          dpi=600,
@@ -462,7 +511,7 @@ London_EUIntnet <- input_EUmig_extradata_long %>%
 ```
 
 
-```{r fig_lines_7, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+```{r fig_lines_7A, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
 
 # Line plot of abs values
 
@@ -494,7 +543,50 @@ London_EUIntmig_extra_lines_abs <-
 London_EUIntmig_extra_lines_abs
 
 
-ggsave (filename = (paste0(chart_dir, "London_EUIntmig_extra_lines_abs.png")),
+ggsave (filename = (paste0(chart_dir, "London_EUIntmig_extra_lines_abs_noK.png")),
+         plot = London_EUIntmig_extra_lines_abs,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+```{r fig_lines_7B, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+# Line plot of abs values
+
+London_EUIntmig_extra_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = London_EUIntnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#eb861e', size = 2) +
+   geom_label_repel(data = London_EUIntnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#eb861e', nudge_x = 200, nudge_y = 25) +
+    geom_line(data = London_EUIntout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#63c5b5', size = 2) +
+   geom_label_repel(data = London_EUIntout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#63c5b5', nudge_x = 200) +
+   geom_line(data = London_EUIntin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#943fa6', size = 2) +
+   geom_label_repel(data = London_EUIntin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#943fa6', nudge_x = 200) +
+    geom_hline(yintercept=0)+
+    scale_y_continuous(labels = label_number(suffix = "K", big.mark = ","))+ #  #scale = 1e-3, 
+    scale_x_date(date_breaks = "2 years", 
+       #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
+               limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
+           date_labels="%b\n%Y") +
+    theme(plot.title = element_text(size = 16)) +
+ #    theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+    labs(title= "EU-related International Migration, UK, 2012 - 2023",
+        caption = paste0("Source: ONS, Chart: GLA demography"))
+London_EUIntmig_extra_lines_abs
+
+
+ggsave (filename = (paste0(chart_dir, "London_EUIntmig_extra_lines_abs_withK.png")),
          plot = London_EUIntmig_extra_lines_abs,
          device = "png",
          dpi=600,
