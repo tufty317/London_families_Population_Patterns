@@ -408,7 +408,7 @@ MYE2022data_ed <- MYE2022data %>%
   mutate(Name = fct_reorder(Name, Int_net_K)) %>%
   data.frame()
 
-colours = c("Immigration" = "#6da7de", "Emmigration" = "#d82222", "Net International migration" = "black")
+colours = c("Immigration" = "#943fa6", "Emmigration" = "#63c5b5", "Net International migration" = "#eb861e")
 
 # bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
 
@@ -420,7 +420,7 @@ int_mig_seg2 <- ggplot(data = MYE2022data_ed) +
   geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=1.5, shape=21, fill="white") +
   scale_color_manual(name = "", values = colours) +
   scale_shape_manual(name = "", values = colours) +
-  scale_x_continuous(labels = label_number(suffix = "K"))+  
+ # scale_x_continuous(labels = label_number(suffix = "K"))+  
   labs(title = "International migration",
        subtitle = "Population flows (thousand/year)",
        caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
