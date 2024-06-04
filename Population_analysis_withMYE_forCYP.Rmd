@@ -1,0 +1,933 @@
+---
+title: "Population, analysis for Ellie, 7 May 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bslib)
+library(DT)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(htmlwidgets)
+library(knitr)
+library(lubridate)
+library(maps)
+library(scales)
+library(forcats)
+
+data_dir <- 'DATA/'
+chart_dir <- 'CHARTS/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+## Import MYE population data
+
+input_MYE2022data <- fread(paste0(data_dir,"MYE22_London_CompsofChange.csv")) %>% 
+    data.frame()
+MYE2022data <- input_MYE2022data %>%
+  mutate(natural_change_adj = Births.minus.Deaths*1000/MYE2021) %>%
+  mutate(int_mig_net_adj = International.Migration.Net*1000/MYE2021) %>%
+  mutate(dom_mig_net_adj = Internal.Migration.Net*1000/MYE2021) %>%
+  mutate(pop_change = MYE2022 - MYE2021) %>%
+    mutate(pop_change_adj = pop_change*1000/MYE2021) %>%
+    data.frame()
+
+# convert data from wide to long format (in fact not needed)
+
+MYE2022data_long <- MYE2022data %>% 
+  pivot_longer(
+    cols = `MYE2021`:`pop_change_adj`, 
+    names_to = "component",
+    values_to = "Value") %>%
+    data.frame()
+
+# checking total births on 19th March 2024
+# 
+# London_births_grouped <- MYE2022data_long  %>%
+#   filter(component  =="Births") %>%
+#   group_by(Inner) %>%
+#   summarize(SUM_births = sum(Value)) %>%
+#   data.frame()
+
+
+```
+
+
+```{r fig_natural_change_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of natural change 
+
+# Import LA boundaries for England and Wales
+borough_boundaries <-
+  st_read("C:/Migration/Migration_R/DATA/Domestic/copied_from_Qdrive_20220614/geographical/LAD_DEC_2021_GB_BUC.shp", quiet = TRUE)
+
+# Match boundary data with pop data 
+
+MYE2022_geog <- MYE2022data %>% 
+  left_join(borough_boundaries, by=c("Code"="LAD21CD")) %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+natural_change_abs_map <- MYE2022_geog %>%
+  ggplot()+
+    geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>Births: ", Births,
+                              "<br>Deaths: ", Deaths,
+                              "<br>Natural change: ", 
+                              formatC(Births.minus.Deaths, digits=0))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+   geom_sf(aes(geometry=geometry, fill=Births.minus.Deaths),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(name = "", colors=c("white", "#7ab5e5" )) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Natural change in London from MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+#natural_change_abs_map
+
+# Interactive map using ggplotly
+natural_change_abs_map_int <- ggplotly(natural_change_abs_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Natural change in London from MYE 2022<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+natural_change_abs_map_int
+
+
+
+```
+
+```{r fig_natural_change_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of natural change adjusted for 2021 population
+
+natural_change_adj_map <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>Births: ", Births,
+                              "<br>Deaths: ", Deaths,
+                              "<br>Population in 2021: ", MYE2021,
+                              "<br>Natural change/1000: ", 
+                              formatC(natural_change_adj, format="f", digits=1))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=natural_change_adj),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(name = "Change/1000", colors=c("white", "#7ab5e5")) +
+  labs(title= "Natural change in London from MYE 2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+#natural_change_adj_map 
+
+# Interactive map using ggplotly
+natural_change_adj_map_int <- ggplotly(natural_change_adj_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Natural change in London from MYE 2022, adjusted for 2021 population<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+natural_change_adj_map_int
+
+
+```
+
+```{r fig_domestic_migration_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of domestic net migration
+
+dom_mig_net_abs_map <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>Inflow: ", Internal.Migration.Inflow,
+                              "<br>Outflow: ", Internal.Migration.Outflow,
+                              "<br>Net domestic migration: ", 
+                              formatC(Internal.Migration.Net))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=Internal.Migration.Net),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(name = "", colors=c( "#7ab5e5", "white")) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Net Domestic Migration, London from MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) 
+#  labs(fill = "")
+#dom_mig_net_abs_map
+
+# Interactive map using ggplotly
+dom_mig_net_abs_map_int <- ggplotly(dom_mig_net_abs_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Net Domestic Migration, London from MYE 2022<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+dom_mig_net_abs_map_int
+
+
+```
+```{r fig_dom_mig_line_abs1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+MYE2022data_ed <- MYE2022data %>%
+  mutate(Dom_in_K = Internal.Migration.Inflow/1000) %>% 
+  mutate(Dom_out_K = -Internal.Migration.Outflow/1000) %>%
+  mutate(Dom_net_K = Internal.Migration.Net/1000) %>%
+  mutate(Name = fct_reorder(Name, Dom_net_K)) %>%
+  data.frame()
+
+colours = c("Domestic in-migration" = "red", "Domestic out-migration" = "blue", "Net domestic migration" = "black")
+
+# bar chart where in-migration starts from zero and goes positive, and out-migration goes backwards from that value
+
+dom_mig_seg1 <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=0, y =Name, xend = Dom_in_K, yend = Name, colour = "Domestic in-migration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Dom_net_K,y = Name, xend = Dom_in_K, yend=Name, colour = "Domestic out-migration"), size = 2, lineend = "butt", alpha = 0.5) +
+  geom_point(aes(x=Dom_net_K, y = Name, colour = "Net domestic migration"), size=1.5, shape=21, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+  labs(title = "Domestic migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21))))
+
+
+dom_mig_seg1
+
+```
+
+
+```{r fig_dom_mig_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of net domestic migration, adjusted for population 
+
+# Match boundary data with pop data 
+
+dom_mig_net_adj_map <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>Inflow: ", Internal.Migration.Inflow,
+                              "<br>Outflow: ", Internal.Migration.Outflow,
+                              "<br>Population in 2021: ", MYE2021,
+                               "<br>Net domestic migration/1000: ", 
+                              formatC(dom_mig_net_adj, format="f", digits=1))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=dom_mig_net_adj),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(name = "Net mign/1000", colors=c( "#7ab5e5","white" )) +
+  labs(title= "Net Domestic Migration, London from MYE 2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) 
+ # labs(fill = "")
+#dom_mig_net_adj_map
+
+# Interactive map using ggplotly
+dom_mig_net_adj_map_int <- ggplotly(dom_mig_net_adj_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Net Domestic Migration, London from MYE 2022, adjusted for 2021 population<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+dom_mig_net_adj_map_int
+
+
+
+```
+
+
+```{r fig_international_migration_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of international net migration
+
+int_mig_net_abs_map <- MYE2022_geog %>%
+   ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>Inflow: ", International.Migration.Inflow,
+                              "<br>Outflow: ", International.Migration.Outflow,
+                              "<br>Net international migration: ", 
+                              formatC(International.Migration.Net))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=International.Migration.Net),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+  labs(title= "Net International Migration, London from MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+# int_mig_net_abs_map
+
+# Interactive map using ggplotly
+int_mig_net_abs_map_int <- ggplotly(int_mig_net_abs_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Net International Migration, London from MYE 2022<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+int_mig_net_abs_map_int
+
+```
+
+```{r fig_int_mig_line_abs2, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+MYE2022data_ed <- MYE2022data %>%
+  mutate(Int_in_K = International.Migration.Inflow/1000) %>% 
+  mutate(Int_out_K = -International.Migration.Outflow/1000) %>%
+  mutate(Int_net_K = International.Migration.Net/1000) %>%
+  mutate(Name = fct_reorder(Name, Int_net_K)) %>%
+  data.frame()
+
+colours = c("Immigration" = "#943fa6", "Emigration" = "#63c5b5", "Net International migration" = "black")
+
+# bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
+
+int_mig_seg2 <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=2, shape=21, stroke = 1.5, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+ # scale_x_continuous(labels = label_number(suffix = "K"))+  
+  labs(title = "International migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+
+ggsave (filename = (paste0(chart_dir, "Int_mig_London_boroughs.png")),
+         plot = int_mig_seg2,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+int_mig_seg2
+
+```
+
+```{r fig_int_mig_line_abs2_B, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Chart for report
+
+int_mig_seg2_rep <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=2, shape=21, stroke = 1.5, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+ # scale_x_continuous(labels = label_number(suffix = "K"))+  
+#  labs(title = "International migration",
+#       subtitle = "Population flows (thousand/year)",
+#       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+ggsave (filename = "C:/Families/Charts_for_Daryl/23_C_Int_mig_London_boroughs.svg",
+         plot = int_mig_seg2_rep,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
+```{r fig_int_mig_line_abs3, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Flip axes on 15 Feb 2024 because of James Gleeson's comment 
+
+# But I don't use this - in my mind the net value should be on the right.
+
+
+# bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
+
+int_mig_seg3 <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=-Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=-Int_out_K,y = Name, xend = -Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=-Int_net_K, y = Name, colour = "Net International migration"), size=1.5, shape=21, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+  scale_x_continuous(labels = label_number(suffix = "K"))+  
+  labs(title = "International migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+
+ggsave (filename = (paste0(chart_dir, "Int_mig_London_boroughs_reversed.png")),
+         plot = int_mig_seg3,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+int_mig_seg3
+
+```
+
+```{r fig_int_mig_adj, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of net international migration, adjusted for population 
+
+int_mig_net_adj_map <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>Inflow: ", International.Migration.Inflow,
+                              "<br>Outflow: ", International.Migration.Outflow,
+                              "<br>Population in 2021: ", MYE2021,
+                               "<br>Net international migration/1000: ", 
+                              formatC(int_mig_net_adj, format="f", digits=1))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=int_mig_net_adj),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradientn(name = "Net mign/1000", colors=c("white", "#7ab5e5" )) +
+  labs(title= "Net International Migration, London from MYE 2022, adjusted for 2021 population",        caption = paste0("Source: ONS, Chart: GLA demography"))
+#  labs(fill = "")
+#int_mig_net_adj_map
+
+
+# Interactive map using ggplotly
+int_mig_net_adj_map_int <- ggplotly(int_mig_net_adj_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Net International Migration, London from MYE 2022, adjusted for 2021 population<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+int_mig_net_adj_map_int
+
+
+
+
+```
+
+
+```{r fig_pop_change_abs, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change
+
+pop_change_abs_map <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                 text = paste("Borough: ", Name,  
+                              "<br>MYE 2021: ", MYE2021,
+                              "<br>MYE 2022: ", MYE2022,
+                              "<br>Population change: ", 
+                              formatC(pop_change))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=pop_change),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradient2(low = "turquoise", mid = "white",  high = "purple", midpoint = 0) +
+#  scale_fill_manual(values = my_pal) + 
+  labs(title= "Population change, London MYE 2021 to MYE 2022", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "")
+#pop_change_abs_map
+
+# Interactive map using ggplotly
+pop_change_abs_map_int <- ggplotly(pop_change_abs_map, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Population change, London MYE 2021 to MYE 2022<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+pop_change_abs_map_int
+
+
+
+```
+
+
+```{r fig_pop_change_adj1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change, adjusted for population 
+
+pop_change_adj_map1 <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                    text = paste("Borough: ", Name,  
+                              "<br>MYE 2021: ", MYE2021,
+                              "<br>MYE 2022: ", MYE2022,
+                              "<br>Population change: ", pop_change,
+                               "<br>Population change/1000: ", 
+                              formatC(pop_change_adj,format="f", digits=1))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=pop_change_adj),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradient2(low = "turquoise", mid = "white",  high = "purple", midpoint = 0) +
+  labs(title= "Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "Change/1000")
+#pop_change_adj_map
+
+# Interactive map using ggplotly
+pop_change_adj_map_int1 <- ggplotly(pop_change_adj_map1, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+pop_change_adj_map_int1
+
+```
+
+
+```{r fig_pop_change_adj2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change, adjusted for population 
+
+pop_change_adj_map2 <- MYE2022_geog %>%
+  ggplot()+
+  geom_point(aes(x=BNG_E, y=BNG_N, 
+                    text = paste("Borough: ", Name,  
+                              "<br>MYE 2021: ", MYE2021,
+                              "<br>MYE 2022: ", MYE2022,
+                              "<br>Population change: ", pop_change,
+                               "<br>Population change/1000: ", 
+                              formatC(pop_change_adj,format="f", digits=1))),
+             alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+  geom_sf(aes(geometry=geometry, fill=pop_change_adj),lwd = 0.2, colour = "black")+
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_gradient2(low = "#63c5b5", mid = "#eeeeee",  high = "#943fa6", midpoint = 0) +
+  labs(title= "Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "Change/1000")
+#pop_change_adj_map
+
+# Interactive map using ggplotly
+pop_change_adj_map_int2 <- ggplotly(pop_change_adj_map2, tooltip = "text") %>%
+  layout(title= list(x = 0.05,
+                     text = "<b>Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population<b>", 
+                     font=list(size = 15, family = "Arial")),
+         font=list(size = 14, family = "Arial", color = "black", fontface = "bold"),
+         legend=list(orientation = "v", xanchor = "center", x = 1.1, y = 0.3,
+                     title=list(text='SMA',
+                                font = list(family = "Arial", size = 14)),  
+                     font = list(family = "Arial", size = 14))) %>%  
+  # add_annotations(text="", showarrow=FALSE, legendtitle=TRUE) %>%
+  layout(annotations = list(x = 0.05, y = -0.05, text = "Source: ONS; Chart: GLA demography", 
+                            showarrow = F, xref='paper', yref='paper', 
+                            font=list(size=14, family = "Arial")), 
+         margin = list(l = 0,r = 0,  b =40,  t = 70,  pad = 4)) 
+pop_change_adj_map_int2
+```
+
+```{r fig_pop_change_adj_labels, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Map of population change, adjusted for population, with labels 
+
+pop_change_adj_map2 <- MYE2022_geog %>%
+  ggplot(aes(geometry=geometry, fill=pop_change_adj, label = Label),lwd = 0.2, colour = "black")+
+  geom_sf()+
+  geom_sf_label(fun.geometry = sf::st_centroid, label.size = NA) +#fill = "white", 
+  # label.size = NA switches off the border to the label boxes
+  theme_gla()+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(legend.text = element_text(family = "Arial", size = 12))+ 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2))+
+ # scale_fill_gradientn(colors=c("white", "#7ab5e5" )) +
+   scale_fill_gradient2(low = "turquoise", mid = "white",  high = "purple", midpoint = 0) +
+ # scale_fill_manual(values = my_pal) + 
+  labs(title= "Population change, London, from MYE 2021 to MYE2022, adjusted for 2021 population", 
+       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  labs(fill = "Change/1000")
+pop_change_adj_map2
+```
+
+```{r fig_dom_mig_borough, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# New analysis on 28th Feb 2024
+
+MYE2022data_ed <- MYE2022data %>%
+  mutate(Dom_in_K = Internal.Migration.Inflow/1000) %>% 
+  mutate(Dom_out_K = -Internal.Migration.Outflow/1000) %>%
+  mutate(Dom_net_K = Internal.Migration.Net/1000) %>%
+  mutate(Name = fct_reorder(Name, Dom_net_K)) %>%
+  data.frame()
+
+colours = c("In-migration" = "#6da7de", "Out-migration" = "#d82222", "Net Domestic migration" = "black")
+
+# bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
+
+dom_mig_seg <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=Dom_out_K, y =Name, xend = 0, yend = Name, colour = "Out-migration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Dom_out_K,y = Name, xend = Dom_net_K, yend=Name, colour = "In-migration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=Dom_net_K, y = Name, colour = "Net Domestic migration"), size=1.5, shape=21, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+  scale_x_continuous(labels = label_number(suffix = "K"))+  
+  labs(title = "Domestic migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+
+ggsave (filename = (paste0(chart_dir, "dom_mig_London_boroughs.png")),
+         plot = dom_mig_seg,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+dom_mig_seg
+
+```
+
+```{r fig_mig_line_flux1, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# create dataframe for plotting
+
+MYE2022_flux <- MYE2022data %>%
+  mutate(Dom_in_K = Internal.Migration.Inflow/1000) %>% 
+  mutate(Dom_out_K = Internal.Migration.Outflow/1000) %>%
+  mutate(Dom_flux_K = Dom_in_K + Dom_out_K) %>%
+  mutate(Int_in_K = International.Migration.Inflow/1000) %>% 
+  mutate(Int_out_K = International.Migration.Outflow/1000) %>%
+  mutate(Int_flux_K = Int_in_K + Int_out_K) %>%
+  mutate(Tot_in_K = Int_in_K + Dom_in_K) %>%
+  mutate(Tot_out_K = Int_out_K + Dom_out_K) %>%
+  mutate(Tot_net_K = Tot_in_K - Tot_out_K) %>%
+  mutate(Tot_flux_K = Int_flux_K + Dom_flux_K) %>%
+  mutate(Births_K = Births/1000) %>%
+  mutate(Name = fct_reorder(Name, Tot_net_K)) %>%
+  mutate(Inner_factor= recode(Inner, "1"="Inner", "0"="Outer")) %>%
+  data.frame()
+
+
+colours = c("In-migration" = "#6da7de", "Out-migration" = "#d82222", "Net Total migration" = "black", "Births" = "white")
+
+
+tot_mig_seg <- ggplot(data = MYE2022_flux) +
+  theme_gla() +
+  geom_segment(aes(x=Tot_out_K, y =Name, xend = 0, yend = Name, colour = "Out-migration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Tot_out_K,y = Name, xend = Tot_net_K, yend=Name, colour = "In-migration"), size = 2, lineend = "butt", alpha = 0.5) +
+  geom_point(aes(x=Tot_net_K, y = Name, colour = "Net Total migration"), size=1.5, shape=21, fill="black") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+  scale_x_continuous(labels = label_number(suffix = "K"))+  
+  labs(title = "Total migration",
+       subtitle = "Population flows (thousand/year)",
+       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+# 
+# ggsave (filename = (paste0(chart_dir, "tot_mig_London_boroughs.png")),
+#          plot = tot_mig_seg,
+#          device = "png",
+#          dpi=600,
+#          width = 9,
+#          units = "in")
+
+tot_mig_seg
+
+
+```
+
+```{r fig_mig_line_flux2, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Scatterplot for individual London boroughs
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+library(ggrepel)
+
+Flux_scatterplot1 <- MYE2022_flux %>%
+  ggplot(aes(x = Tot_flux_K, y = Births_K, color=Inner_factor)) +
+  geom_point(shape=18,  size = 4) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  scale_color_manual(name='London Zone:', values = catcolour2) +
+  theme_gla(x_axis_title = TRUE,  y_axis_title = TRUE, free_y_facets = TRUE)+
+  theme(legend.position = "right") + 
+  labs(x = "Total flux (thousands)", 
+       y = "Births (thousands)") +
+  geom_text_repel(aes(label = Name), size = 4) +
+  labs(title= "Scatterplot of Total flux v. births in 2022 for London boroughs", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+Flux_scatterplot1
+# 
+# ggsave (filename = (paste0(chart_dir, "SMA_London_change_2011_scatterplot.png")),
+#          plot = SMA_absChange_scatterplot2,
+#          device = "png",
+#          dpi=600,
+#          width = 9,
+#          height = 5.56,
+#          units = "in")
+
+
+```
+
+```{r fig_mig_line_flux3, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# adjust for population
+
+MYE2022_flux_adj <- MYE2022_flux %>%
+ mutate(Tot_flux_adj = Tot_flux_K*1000000/MYE2021) %>%
+  mutate(Births_adj = Births_K*1000000/MYE2021) %>%
+  filter(Code != "E09000001") %>%
+  data.frame()
+
+## Scatterplot for individual London boroughs
+
+catcolour2 = c('#ee266d', '#6da7de')
+
+library(ggrepel)
+
+Flux_scatterplot2 <- MYE2022_flux_adj %>%
+  ggplot(aes(x = Tot_flux_adj, y = Births_adj, color=Inner_factor)) +
+  geom_point(shape=18,  size = 4) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  scale_color_manual(name='London Zone:', values = catcolour2) +
+  geom_smooth(method='lm', se = FALSE, linewidth=0.5) +  #linetype="dashed"
+  theme_gla(x_axis_title = TRUE,  y_axis_title = TRUE, free_y_facets = TRUE)+
+  theme(legend.position = "right") + 
+  labs(x = "Adjusted Total flux", 
+       y = "Adjusted Births") +
+  geom_text_repel(aes(label = Name), size = 4) +
+  labs(title= "Scatterplot of Total flux v. births in 2022 for London boroughs, adjusted for population", 
+       caption = paste0("Source: ONS, Chart: GLA demography"))
+Flux_scatterplot2
+```

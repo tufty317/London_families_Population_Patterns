@@ -1,0 +1,98 @@
+---
+title: "Population, 29 Nov 2023 and May 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bslib)
+library(DT)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(htmlwidgets)
+library(knitr)
+library(lubridate)
+library(maps)
+library(scales)
+library(forcats)
+
+data_dir <- 'DATA/'
+chart_dir <- 'CHARTS/'
+
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+## Import MYE population data
+
+input_MYE2022data <- fread(paste0(data_dir,"MYE22_London_CompsofChange.csv")) %>% 
+    data.frame()
+
+MYE2022data <- input_MYE2022data %>%
+  mutate(natural_change_adj = Births.minus.Deaths*1000/MYE2021) %>%
+  mutate(int_mig_net_adj = International.Migration.Net*1000/MYE2021) %>%
+  mutate(dom_mig_net_adj = Internal.Migration.Net*1000/MYE2021) %>%
+  mutate(pop_change = MYE2022 - MYE2021) %>%
+    mutate(pop_change_adj = pop_change*1000/MYE2021) %>%
+    data.frame()
+
+MYE2022data_ed <- MYE2022data %>%
+  mutate(Int_in_K = International.Migration.Inflow/1000) %>% 
+  mutate(Int_out_K = -International.Migration.Outflow/1000) %>%
+  mutate(Int_net_K = International.Migration.Net/1000) %>%
+  mutate(Name = fct_reorder(Name, Int_net_K)) %>%
+  data.frame()
+
+```
+
+```{r fig_int_mig_line_abs2, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+colours = c("Immigration" = "#943fa6", "Emigration" = "#63c5b5", "Net International migration" = "black")
+
+int_mig_seg <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=2, shape=21, stroke = 1.5, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+ # scale_x_continuous(labels = label_number(suffix = "K"))+  
+#  labs(title = "International migration",
+#       subtitle = "Population flows (thousand/year)",
+#       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+int_mig_seg
+
+ggsave (filename = "C:/Families/Charts_for_github/23_C_Int_mig_London_boroughs.svg",
+         plot = int_mig_seg,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```

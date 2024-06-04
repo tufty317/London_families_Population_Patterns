@@ -1,0 +1,647 @@
+---
+title: "Population, Dec 2023, Feb and May 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bslib)
+library(DT)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(htmlwidgets)
+library(knitr)
+library(lubridate)
+library(maps)
+library(scales)
+library(forcats)
+
+data_dir <- 'DATA/'
+chart_dir <- 'CHARTS/'
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+```{r setup2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+#----------------------------------------------------------------
+## THERE'S NO NEED TO RUN THIS CODE
+# IT'S INCLUDED FOR INFORMATION
+
+# GO TO c.line 150 FOR CODE FOR CHARTS
+
+#-----------------------------------------------------------------
+
+## Import population data
+
+input_2011and2021data <- fread(paste0(data_dir,"mye_tables_EandW_LAs_2011and2021only.csv"))%>% 
+  data.frame()
+
+input_2001and2011data <- fread(paste0(data_dir,"mye_tables_EandW_LAs_2001and2011only.csv"))%>% 
+  data.frame()
+
+input_region_lookup_tabledata <- fread(paste0(data_dir,"Local_Authority_District_to_Region_(December_2020)_Lookup_in_England.csv"))%>% 
+  data.frame()
+
+```
+
+```{r setup3, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+#-----------------------------------------------------------------------
+## Compare 0 year olds in 2001 with 10 year olds in 2011
+
+LA_2001zero <- input_2001and2011data %>% 
+  mutate(pop2001zero = X2001) %>%
+  filter(age == 0) %>%  
+  data.frame() 
+
+LA_2011ten <- input_2001and2011data %>% 
+  mutate(pop2011ten = X2011) %>%
+  filter(age == 10) %>%  
+  data.frame()
+
+# Merge the two datasets
+
+LA_2001and2011 <- LA_2001zero  %>%
+  left_join(LA_2011ten, by=c("ladcode18"="ladcode18", "laname18"="laname18", "sex" = "sex")) %>% 
+  data.frame() 
+
+# calculate change
+LA_2001and2011_agezeroand10_change <- LA_2001and2011 %>% 
+  group_by(ladcode18, laname18) %>% 
+  summarise(Sum2011ten = sum(pop2011ten), 
+            Sum2001zero = sum(pop2001zero)) %>%
+  mutate(Change_2001to2011 = ((Sum2011ten - Sum2001zero)*100/Sum2001zero)) %>%
+  drop_na() %>%
+  data.frame()
+
+#--------------------------------------------------------------------------------
+
+## Compare 0 year olds in 2011 with 10 year olds in 2021
+
+LA_2011zero <- input_2011and2021data %>% 
+  mutate(pop2011zero = X2011) %>%
+  filter(age == 0) %>%  
+  data.frame() 
+
+LA_2021ten <- input_2011and2021data %>% 
+  mutate(pop2021ten = X2021) %>%
+  filter(age == 10) %>%  
+  data.frame()
+
+# Merge the two datasets
+
+LA_2011and2021 <- LA_2011zero  %>%
+  left_join(LA_2021ten, by=c("ladcode21"="ladcode21", "laname21"="laname21", "sex" = "sex")) %>% 
+  data.frame() 
+
+# calculate change
+LA_2011and2021_agezeroand10_change <- LA_2011and2021 %>% 
+  group_by(ladcode21, laname21) %>% 
+  summarise(Sum2021ten = sum(pop2021ten), 
+            Sum2011zero = sum(pop2011zero)) %>%
+  mutate(Change_2011to2021 = ((Sum2021ten - Sum2011zero)*100/Sum2011zero)) %>%
+  drop_na() %>%
+  data.frame()
+
+
+```
+
+
+```{r setup4, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Calculations for map for later change i.e. 2011 to 2021
+
+change_2011to2021 <- LA_2011and2021_agezeroand10_change %>% 
+  mutate(Perc_Cat = cut(Change_2011to2021, breaks = c(-45, -28, -16, -5, 5, 16, 28, 50),
+                             right=FALSE,
+                             labels = c("-45.0 -",
+                                        "-28.0 -",
+                                        "-16.0 -",
+                                        " -5.0 -",
+                                        "  5.0 -",
+                                        " 16.0 -",
+                                        " 28.0+"))) %>%
+  data.frame()
+  
+# Create a datafile to save on github
+
+write.csv(change_2011to2021, "C:/Families/Data_for_github/change_2011to2021.csv")
+
+```
+
+
+```{r fig_pop_change_cohort_2011_to_2021, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+### START HERE to make the plot
+
+# read in data
+
+change_2011to2021 <- read.csv("C:/Families/Data_for_github/change_2011to2021.csv") %>%
+  data.frame
+
+# Import LA boundaries for England and Wales 
+borough_boundaries20 <-
+  st_read("C:/Geographical/Geographies for Rent data from Yiran/ONS_rents_data_GIS_boundary/ONS_Rents_LAs_allEng_GIS_boundary.shp", quiet = TRUE)
+
+change_2011to2021_geog <- change_2011to2021 %>% 
+  left_join(borough_boundaries20, by=c("ladcode21"="Area_Code")) %>%
+  data.frame()
+
+# Import Region boundaries for UK
+south_region_boundaries <-
+  st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
+    mutate(London = ifelse((RGN22CD=="E12000007"), "yes", "no")) %>%
+    filter(RGN22CD=="E12000006" | RGN22CD=="E12000007" | RGN22CD=="E12000008" )
+
+londonmap7_diverge2 = c('#63c5b5','#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
+
+
+change_2011to2021_map_london <- change_2011to2021_geog %>%
+   ggplot()+
+   geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.1, colour = "black" ) +
+  geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+ theme(legend.text = element_text(size=16)) +
+  theme(legend.title = element_text(size=16)) +
+  theme(legend.key.height= unit(1, 'cm'),
+        legend.key.width= unit(0.7, 'cm')) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2)) +
+  scale_fill_manual("% change", values = londonmap7_diverge2) + 
+#  labs(title= "Inter-census cohort change (<1 y.o in 2011 to 10 y.o. in 2021)", 
+#              subtitle = "Using MYE instead of census data",
+#       caption = paste0("Source: Home Office, Chart: GLA demography")) +
+   labs(fill = "% change") + 
+  guides(alpha="none") +
+  coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
+  
+change_2011to2021_map_london
+
+ggsave (filename = "C:/Families/Charts_for_github/22_A1_change_2011to2021_map_london.svg",
+         plot = change_2011to2021_map_london,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+ggsave (filename = "C:/Families/Charts_for_github/22_A1_change_2011to2021_map_london.png",
+         plot = change_2011to2021_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+```
+
+
+```{r setup5, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Now calculations for map of earlier change, i.e. 2001 to 2011
+
+change_2001to2011 <- LA_2001and2011_agezeroand10_change %>% 
+  mutate(Perc_Cat = cut(Change_2001to2011, breaks = c(-45, -28, -16, -5, 5, 16, 28, 50),
+                             right=FALSE,
+                             labels = c(" -45.0 - -28.01",
+                                        " -28.0 - -16.01",
+                                        " -16.0 - -5.01",
+                                        " -5.0  -  4.99",
+                                        "  5.0  - 15.99",
+                                        " 16.0  - 27.99",
+                                        " 28.0  - 50.00"))) %>%
+  data.frame()
+
+# Create a datafile to save on github
+
+write.csv(change_2001to2011, "C:/Families/Data_for_github/change_2001to2011.csv")
+
+```
+
+
+```{r fig_pop_change_cohort_2001_to 2011, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+### Start here to make the plot
+
+# read in data
+
+change_2001to2011 <- read.csv("C:/Families/Data_for_github/change_2001to2011.csv") %>%
+  data.frame
+
+# Import LA boundaries for England and Wales - trying with 2015 data
+borough_boundaries15 <-
+  st_read("C:/Geographical/LA_UK_boundaries/Local_Authority_Districts_(December_2015)_Boundaries.shp", quiet = TRUE)
+
+change_2001to2011_geog <- change_2001to2011 %>% 
+  left_join(borough_boundaries15, by=c("ladcode18"="lad15cd")) %>%
+  data.frame()
+
+londonmap7_diverge2 = c('#63c5b5','#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
+
+# Import Region boundaries for UK
+
+south_region_boundaries <-
+  st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
+    mutate(London = ifelse((RGN22CD=="E12000007"), "yes", "no")) %>%
+    filter(RGN22CD=="E12000006" | RGN22CD=="E12000007" | RGN22CD=="E12000008" )
+
+change_2001to2011_map_london <- change_2001to2011_geog %>%
+   ggplot()+
+  # geom_point(aes(x=BNG_E, y=BNG_N,
+  #                text = paste("LA name: ",  laname18,
+  #                             "<br>Percent change: ",
+  #                             formatC(Change_2001to2011, format="f", big.mark=",", digits=2))),
+  #            alpha = 0) +   # alpha = 0 ensures that points are not actually plotted
+   geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.1, colour = "black" ) +
+  geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+  panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_manual(values = londonmap7_diverge2) + 
+#  labs(title= "Inter-census cohort change (<1 y.o in 2001 to 10 y.o. in 2011)", 
+#              subtitle = "Using MYE instead of census data",
+#       caption = paste0("Source: Home Office, Chart: GLA demography")) +
+  theme(legend.position="none") +
+  guides(alpha="none") +
+  coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
+
+change_2001to2011_map_london
+
+ggsave (filename = "C:/Families/Charts_for_github/22_A2_change_2001to2011_map_london.svg",
+         plot = change_2001to2011_map_london,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+ggsave (filename = "C:/Families/Charts_for_github/22_A2_change_2001to2011_map_london.png",
+         plot = change_2001to2011_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```
+
+```{r setup6, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Compare size of 0-10 year old age group in 2011 with 0-10 year olds in 2021
+
+LA_2011zerototen <- input_2011and2021data %>% 
+  mutate(pop2011zero = X2011) %>%
+  filter(age < 11) %>%  
+   group_by(ladcode21, laname21) %>% 
+  summarise(agg_X2011 = sum(X2011)) %>%
+  data.frame() 
+
+LA_2021zerototen <- input_2011and2021data %>% 
+  mutate(pop2021ten = X2021) %>%
+  filter(age < 11) %>%  
+ group_by(ladcode21, laname21) %>% 
+  summarise(agg_X2021 = sum(X2021)) %>%
+  data.frame()
+
+# Merge the two datasets
+
+LA_2011and2021zerototen <- LA_2011zerototen  %>%
+  left_join(LA_2021zerototen, by=c("ladcode21"="ladcode21", "laname21"="laname21")) %>% 
+  data.frame() 
+
+# calculate change
+LA_2011and2021_agezeroto10_change <- LA_2011and2021zerototen %>% 
+  group_by(ladcode21, laname21) %>% 
+  mutate(Change_2011to2021 = ((agg_X2021 - agg_X2011)*100/agg_X2011)) %>%
+  drop_na() %>%
+  data.frame()
+
+LA_2011and2021_agezeroto10_change_cat <- LA_2011and2021_agezeroto10_change %>% 
+   mutate(Perc_Cat = cut(Change_2011to2021, breaks = c(-35, -20, -10, -5, 5, 10, 20, 35),
+                             right=FALSE,
+                             labels = c("-35.0 -",
+                                        "-20.0 -",
+                                        "-10.0 -",
+                                        " -5.0 -",
+                                        "  5.0 -",
+                                        " 10.0 -",
+                                        " 20.0+"))) %>%
+  data.frame()
+
+# Create a datafile to save on github
+
+write.csv(LA_2011and2021_agezeroto10_change_cat, "C:/Families/Data_for_github/2011and2021_agezeroto10_change.csv")
+
+```
+
+```{r fig_pop_change_zerototen, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+### Start here to make the plot
+
+# read in data
+
+LA_2011and2021_agezeroto10_change_cat <- read.csv("C:/Families/Data_for_github/2011and2021_agezeroto10_change.csv") %>%
+  data.frame
+
+# Import LA boundaries for England and Wales 
+borough_boundaries20 <-
+  st_read("C:/Geographical/Geographies for Rent data from Yiran/ONS_rents_data_GIS_boundary/ONS_Rents_LAs_allEng_GIS_boundary.shp", quiet = TRUE)
+
+# Import Region boundaries for UK
+
+south_region_boundaries <-
+  st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
+    mutate(London = ifelse((RGN22CD=="E12000007"), "yes", "no")) %>%
+    filter(RGN22CD=="E12000006" | RGN22CD=="E12000007" | RGN22CD=="E12000008" )
+
+LA_2011and2021_agezeroto10_change_cat_geog <- LA_2011and2021_agezeroto10_change_cat %>% 
+  left_join(borough_boundaries20, by=c("ladcode21"="Area_Code")) %>%
+  data.frame()
+
+londonmap7_diverge2 = c('#63c5b5','#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
+
+
+change_2011to2021_zerototen_map_london <- LA_2011and2021_agezeroto10_change_cat_geog %>%
+   ggplot()+
+   geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.1, colour = "black" ) +
+  geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.text = element_text(size=16)) +
+  theme(legend.title = element_text(size=16)) +
+  theme(legend.key.height= unit(1, 'cm'),
+        legend.key.width= unit(0.7, 'cm')) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+  panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_manual(values = londonmap7_diverge2) + 
+#  labs(title= "Inter-census change (2011 - 2021) in population age 0 - 10 y.o.", 
+#              subtitle = "Using MYE instead of census data",
+#       caption = paste0("Source: Home Office, Chart: GLA demography")) +
+   labs(fill = "% change") + 
+  guides(alpha="none") +
+  coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
+
+change_2011to2021_zerototen_map_london
+
+ggsave (filename = "C:/Families/Charts_for_github/31_A_change_2011to2021_zerototen_map_london.svg",
+         plot = change_2011to2021_zerototen_map_london,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+ggsave (filename = "C:/Families/Charts_for_github/31_A_change_2011to2021_zerototen_map_london.png",
+         plot = change_2011to2021_zerototen_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+```
+
+
+```{r setup_7, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Import census population data from Donal's analysis
+
+input_donaldata <- read.csv("C:/Families/Data_for_github/Census_HH_dep_children.csv") %>%
+  data.frame
+
+# Calculate change in hh with dependent children between 2011 and 2021
+
+DepChildren_Change <- input_donaldata  %>%
+  group_by(lad22cd, lad22nm) %>% 
+  summarise(sum_value21 = sum(value_21), sum_value11 = sum(value_11), sum_value01 = sum(value_01)) %>%
+  mutate(changePerc = ((sum_value21 - sum_value11)*100/sum_value11)) %>%
+    drop_na() %>%
+  data.frame()
+
+change_2011to2021_depChildren <- DepChildren_Change %>% 
+   mutate(Perc_Cat = cut(changePerc, breaks = c(-20, -10, -5, -2, 2, 7, 12, 40),
+                             right=FALSE,
+                             labels = c("-20.0 -",
+                                        "-10.0 -",
+                                        "- 5.0 -",
+                                        "- 2.0 -",
+                                        "  2.0 -",
+                                        "  7.0 -",
+                                        " 12.0+"))) %>%
+  data.frame() 
+
+# Create a datafile to save on github
+
+write.csv(change_2011to2021_depChildren, "C:/Families/Data_for_github/change_2011to2021_depChildren.csv")
+
+```
+
+
+```{r fig_pop_change_depChild_HH, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+### Start here to make the plot
+
+## making a map showing the change in number of households with dependent children across London by Borough
+
+# read in data
+
+change_2011to2021_depChildren <- read.csv("C:/Families/Data_for_github/change_2011to2021_depChildren.csv") %>%
+  data.frame
+
+# Import LA boundaries for England and Wales
+borough_boundaries <-
+  st_read("C:/Migration/Migration_R/DATA/Domestic/copied_from_Qdrive_20220614/geographical/LAD_DEC_2021_GB_BUC.shp", quiet = TRUE)
+
+change_2011to2021_depChildren_geog <- change_2011to2021_depChildren %>% 
+  left_join(borough_boundaries, by=c("lad22cd"="LAD21CD")) %>%
+  data.frame() 
+
+# Import region boundaries
+
+south_region_boundaries <-
+  st_read("C:/Geographical/England_Region_Boundaries/RGN_DEC_2022_EN_BUC.shp", quiet = TRUE) %>%
+    mutate(London = ifelse((RGN22CD=="E12000007"), "yes", "no")) %>%
+    filter(RGN22CD=="E12000006" | RGN22CD=="E12000007" | RGN22CD=="E12000008" )
+
+londonmap7_diverge2 = c('#63c5b5','#96d3c8','#c3e1db','#eeeeee','#d2b4d6','#b47bbe','#943fa6')
+ 
+change_2011to2021_depchildren_map_london <- change_2011to2021_depChildren_geog %>%
+  ggplot() + 
+  geom_sf(aes(geometry=geometry, fill=Perc_Cat),lwd = 0.1, colour = "black" ) +
+  # geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right") +
+  #theme(legend.title = element_blank()) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  theme(panel.background = element_blank()) +
+  theme(plot.caption = element_text (hjust = 0)) +
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(plot.subtitle = element_text(size = 12, hjust= 0.5)) +
+  theme(plot.caption = element_text(size = 10, hjust= 0)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank()) +
+  scale_fill_manual("% change", values = londonmap7_diverge2,
+                    limits = levels(change_2011to2021_depChildren_geog$Perc_Cat)) +  
+    theme(legend.text = element_text(size=16)) +
+  theme(legend.title = element_text(size=16)) +
+  theme(legend.key.height= unit(1, 'cm'),
+        legend.key.width= unit(0.7, 'cm')) 
+#+
+#   labs(title = "Number of households with dependent children", 
+#       subtitle = "Change from Census 2011 to Census 2021",
+#       caption = "Source: Census 2011 & Census 2021, Chart: GLA demography") 
+change_2011to2021_depchildren_map_london
+ 
+ggsave (filename = "C:/Families/Charts_for_github/31_B_change_2011to2021_depchildren_map_london.svg",
+         plot =  change_2011to2021_depchildren_map_london,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+ 
+
+```
+
+
+```{r setup_8, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## making a map showing the number of households with dependent children across London by Borough
+
+## Import data
+
+input_dep_hh_2021 <- fread(paste0(data_dir,"Dep_HH_2021.csv"))%>% 
+  data.frame()
+
+dep_hh_2021 <- input_dep_hh_2021 %>% 
+    mutate(HHCat = cut(Sum, breaks = c(7, 23, 26, 29, 40),
+                             right=FALSE,
+                             labels = c(" 7 -",
+                                        "23 -",
+                                        "26 -",
+                                        "29+"))) %>%
+  data.frame()
+
+# Create a datafile to save on github
+
+write.csv(dep_hh_2021, "C:/Families/Data_for_github/dep_hh_2021.csv")
+
+```
+
+```{r fig_pop_depHH, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+### Start here to make the plot
+
+# read in data
+
+dep_hh_2021 <- read.csv("C:/Families/Data_for_github/dep_hh_2021.csv") %>%
+  data.frame
+
+# Import LA boundaries for England and Wales 
+borough_boundaries20 <-
+  st_read("C:/Geographical/Geographies for Rent data from Yiran/ONS_rents_data_GIS_boundary/ONS_Rents_LAs_allEng_GIS_boundary.shp", quiet = TRUE)
+
+dep_hh_2021_geog <- dep_hh_2021 %>% 
+  left_join(borough_boundaries20, by=c("Area.code"="Area_Code")) %>%
+    data.frame()
+
+catgreen4 = c('#eeeeee', '#acc1aa', '#739272', '#4a6349')
+
+dep_hh_2021_map_london <- dep_hh_2021_geog %>%
+   ggplot()+
+   geom_sf(aes(geometry=geometry, fill=HHCat),lwd = 0.1, colour = "black" ) +
+  geom_sf(data = south_region_boundaries, aes(x=LONG, y=LAT, geometry=geometry), alpha = 0.01, lwd = 0.7, colour = "black")+
+   theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.position = "right")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  theme(panel.background = element_blank())+
+  theme(plot.caption = element_text (hjust = 0))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  theme(legend.text = element_text(size=16)) +
+  theme(legend.title = element_text(size=16)) +
+  theme(legend.key.height= unit(1, 'cm'),
+        legend.key.width= unit(0.7, 'cm')) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.ticks.y = element_blank(),
+  panel.border = element_rect(colour = "black", fill=NA, size=2))+
+  scale_fill_manual(values = catgreen4) + 
+#  labs(title= "Per cent of couple and lone-parent households with dependent children, 2021", 
+ #caption = paste0("Source: Home Office, Chart: GLA demography")) +
+   labs(fill = "% households") + 
+  guides(alpha="none") +
+  coord_sf(xlim = c(480000,580000), ylim = c(130000, 220000))
+dep_hh_2021_map_london
+
+ggsave (filename = "C:/Families/Charts_for_github/31_C_dep_hh_2021_map_london.svg",
+         plot = dep_hh_2021_map_london,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+ggsave (filename = "C:/Families/Charts_for_github/31_C_dep_hh_2021_map_london.png",
+         plot = dep_hh_2021_map_london,
+         device = "png",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+```

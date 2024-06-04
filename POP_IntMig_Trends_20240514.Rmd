@@ -1,0 +1,283 @@
+---
+title: "Analysis of int.mign data, Jan 8th, and May 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(zoo)
+library(data.table)
+library(tidyverse)
+library(gglaplot)
+library(ggplot2)
+library(scales)
+library(readxl)
+library(knitr)
+library(sf)
+library(sp)
+library(kableExtra)
+library(magick)
+library(plotly)    
+library(RColorBrewer)
+library(htmltools)
+library(prettydoc)
+library(rmdformats)
+library(ggrepel)
+
+#devtools::load_all("C:/demogtools/")
+
+data_dir <- 'DATA/'
+chart_dir <- 'C:/Families/Charts/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup_2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+#----------------------------------------------------------------
+## THERE'S NO NEED TO RUN THIS CODE
+# IT'S INCLUDED FOR INFORMATION
+
+# GO TO c.line 120 FOR CODE FOR CHARTS
+
+#-----------------------------------------------------------------
+
+
+# Read in population data 
+
+input_UK_intmig_data_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/International_migration_2012to2023_Nov23.csv")%>% 
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame()
+
+input_UK_EUmig_data_long <- fread("C:/Families/London_families_Pop_Patterns/DATA/EU_and_NonEU_migration_2012to2023_Nov23.csv")%>% 
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame()
+
+```
+
+
+```{r setup_4,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# International migration, UK data 
+
+UK_Intin <- input_UK_intmig_data_long %>%
+    filter(Component == "Immigration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intin = (Value/first(Value))*100) %>% 
+  mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+UK_Intout <- input_UK_intmig_data_long %>%
+    filter(Component == "Emigration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intout = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+UK_Intnet <- input_UK_intmig_data_long %>%
+    filter(Component == "Net migration") %>%
+    group_by(Component) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+
+# Create datafiles to save on github
+
+write.csv(UK_Intnet, "C:/Families/Data_for_github/UK_Intnet.csv")
+write.csv(UK_Intin, "C:/Families/Data_for_github/UK_Intin.csv")
+write.csv(UK_Intout, "C:/Families/Data_for_github/UK_Intout.csv")
+
+```
+
+
+```{r fig_lines_4, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+## START HERE TO MAKE PLOT
+
+# Line plot of change, UK data
+
+# read in data
+
+UK_Intnet <- read.csv("C:/Families/Data_for_github/UK_Intnet.csv") %>%
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+ data.frame
+ UK_Intin <- read.csv("C:/Families/Data_for_github/UK_Intin.csv") %>%
+    mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame
+ UK_Intout <- read.csv("C:/Families/Data_for_github/UK_Intout.csv") %>%
+    mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame
+
+UK_Intmig_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = UK_Intnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#eb861e', size = 2) +
+   geom_label_repel(data = UK_Intnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#eb861e', nudge_x = 300) +
+   geom_ribbon(data=UK_Intnet,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                   alpha= 0.2, linetype=3) +
+   geom_line(data = UK_Intout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#63c5b5', size = 2) +
+   geom_label_repel(data = UK_Intout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#63c5b5', nudge_x = 300) +
+       geom_ribbon(data=UK_Intout,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                   alpha= 0.2, linetype=3) +
+   geom_line(data = UK_Intin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#943fa6', size = 2) +
+   geom_label_repel(data = UK_Intin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#943fa6', nudge_x = 300) +
+     geom_ribbon(data=UK_Intin,aes(x = date, ymin=Lower.bound/1000, ymax=Upper.bound/1000),
+                 alpha= 0.2, linetype=3) +
+    geom_hline(yintercept=0)+
+     scale_y_continuous(labels = label_number(big.mark = ","))+ # suffix = "K", #scale = 1e-3, 
+    scale_x_date(date_breaks = "2 years", 
+               limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
+           date_labels="%b\n%Y") +
+    theme(plot.title = element_text(size = 16)) 
+ #    theme(axis.text.x = element_text(angle = 45,  hjust=1)) 
+#+
+#    labs(title= "International migration, UK, 2012 - 2023 (provisional)",
+#        caption = paste0("Source: ONS, Chart: GLA demography"))
+UK_Intmig_lines_abs
+
+ggsave (filename = "C:/Families/Charts_for_Github/23_A_UK_Intmig_lines_abs.svg",
+         plot = UK_Intmig_lines_abs,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```
+
+
+
+
+
+```{r setup_6,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# EU migration using data from 2012
+
+UK_EUIntin <- input_UK_EUmig_data_long %>%
+    filter(Component == "Immigration") %>%
+      filter(Region == "EU") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intin = (Value/first(Value))*100) %>% 
+  mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+UK_EUIntout <- input_UK_EUmig_data_long %>%
+    filter(Component == "Emigration") %>%
+      filter(Region == "EU") %>%
+    group_by(Region) %>%  
+   mutate(indexed_Intout = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+UK_EUIntnet <- input_UK_EUmig_data_long %>%
+    filter(Component == "Net migration") %>%
+      filter(Region == "EU") %>%
+    group_by(Region) %>% 
+   mutate(indexed_Intnet = (Value/first(Value))*100) %>% 
+   mutate(Estimates = case_when(Source == "Estimates" ~ 1,  TRUE ~ 0)) %>%
+    mutate(Estimates_factor = as.factor(Estimates)) %>%
+       mutate(label = if_else(date == max(date), 
+                         as.character(Component), NA_character_)) %>%
+  data.frame()
+
+# Create datafiles to save on github
+
+write.csv(UK_EUIntnet, "C:/Families/Data_for_github/UK_EUIntnet.csv")
+write.csv(UK_EUIntin, "C:/Families/Data_for_github/UK_EUIntin.csv")
+write.csv(UK_EUIntout, "C:/Families/Data_for_github/UK_EUIntout.csv")
+
+
+```
+
+
+```{r fig_lines_7A_B, fig.height = 5.56, fig.width = 9,   echo=FALSE, warning=FALSE, message=FALSE}
+
+## START HERE TO MAKE PLOT
+
+# Line plot of change in EU Int migration, UK data
+
+# read in data
+UK_EUIntnet <- read.csv("C:/Families/Data_for_github/UK_EUIntnet.csv") %>%
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+ data.frame
+UK_EUIntin <- read.csv("C:/Families/Data_for_github/UK_EUIntin.csv") %>%
+  mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+   data.frame
+UK_EUIntout <- read.csv("C:/Families/Data_for_github/UK_EUIntout.csv") %>%
+     mutate(date = as.Date(Date, format = "%d/%m/%Y")) %>%
+ data.frame
+
+UK_EUIntmig_lines_abs <-
+   ggplot() +
+  theme_gla() +
+   geom_line(data = UK_EUIntnet, aes(x = date, y = Value/1000, group = 1), 
+             color = '#eb861e', size = 2) +
+   geom_label_repel(data = UK_EUIntnet, aes(x = date, y = Value/1000, label = label), 
+                    color = '#eb861e', nudge_x = 200, nudge_y = 25) +
+    geom_line(data = UK_EUIntout, aes(x = date, y = Value/1000, group = 1), 
+             color = '#63c5b5', size = 2) +
+   geom_label_repel(data = UK_EUIntout, aes(x =  date, y = Value/1000, label = label), 
+                    color = '#63c5b5', nudge_x = 200) +
+   geom_line(data = UK_EUIntin, aes(x = date, y = Value/1000, group = 1), 
+             color = '#943fa6', size = 2) +
+   geom_label_repel(data = UK_EUIntin, aes(x = date, y = Value/1000, label = label),  
+                    color = '#943fa6', nudge_x = 200) +
+    geom_hline(yintercept=0)+
+    scale_y_continuous(labels = label_number(big.mark = ","))+ # suffix = "K", #scale = 1e-3, 
+    scale_x_date(date_breaks = "2 years", 
+       #    limits = as.Date(c('30/06/2012', '30/06/2023'), format="%d/%m/%Y"),
+               limits = as.Date(c('06/2012', '06/2023'), format="%m/%Y"),
+           date_labels="%b\n%Y") +
+    theme(plot.title = element_text(size = 16)) 
+#+
+ #    theme(axis.text.x = element_text(angle = 45,  hjust=1)) +
+ #   labs(title= "EU-related International Migration, UK, 2012 - 2023",
+  #      caption = paste0("Source: ONS, Chart: GLA demography"))
+UK_EUIntmig_lines_abs
+
+ggsave (filename = "C:/Families/Charts_for_Github/23_B_UK_EUIntmig_extra_lines_abs_noK.svg",
+         plot = UK_EUIntmig_lines_abs,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+```
+

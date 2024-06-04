@@ -1,0 +1,267 @@
+---
+title: "Population analysis, February 14 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(zoo)
+library(data.table)
+library(tidyverse)
+library(gglaplot)
+library(ggplot2)
+library(scales)
+library(readxl)
+library(knitr)
+library(sf)
+library(sp)
+library(kableExtra)
+library(magick)
+library(plotly)    
+library(RColorBrewer)
+library(htmltools)
+library(prettydoc)
+library(rmdformats)
+library(ggrepel)
+
+
+data_dir <- 'C:/Families/Data_for_github/'
+chart_dir <- 'C:/Families/Charts_for_github/'
+
+# Disable scientific notation
+options(scipen=999)
+
+
+```
+
+
+
+```{r London_setup_calculations1, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+#----------------------------------------------------------------
+## THERE'S NO NEED TO RUN THIS CODE
+# IT'S INCLUDED FOR INFORMATION
+
+# GO TO c.line 170 FOR CODE FOR CHARTS
+
+#-----------------------------------------------------------------
+
+## Data for plot from 2011
+
+# Read in population data by LA (these data are MYE for England and Wales)
+
+
+EandW_la_pop_2011to2022  <- fread("C:/Families/Data/myeb1_englandwales_la_2011to2022.csv") %>%
+  data.frame()
+
+London_la_pop_2011to2022 <-  EandW_la_pop_2011to2022 %>%
+    filter(grepl('E09000', ladcode21)) %>% 
+   data.frame()
+
+London_la_pop_2011to2022_long <- London_la_pop_2011to2022 %>% 
+   pivot_longer(
+    cols = starts_with("X"),
+    names_to = "year",
+    names_prefix = "X",
+    values_to = "value",
+    values_drop_na = TRUE) %>%
+     group_by(age, year, ladcode21, laname21) %>%
+  data.frame()
+
+# Merge population data with Inner/Outer file
+
+boroughcodes <- read.csv(paste0(data_dir,"InnerLondon.csv")) %>%   
+  data.frame
+
+London_la_pop_2011to2022_zone <-  London_la_pop_2011to2022_long %>%
+  left_join(boroughcodes, by=c("ladcode21"= "BoroughCode" )) %>% 
+data.frame()
+    
+# Specify age groups 
+
+agebreaks <- c(0,11,18,25,40,65, 200)
+agelabels <- c("0-10","11-17","18-24","25-39","40-64","65+")
+
+setDT(London_la_pop_2011to2022_zone)[ , agegroups := cut(age, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+## Group by age-group and zone
+
+London_pop_zone_grouped_2011 <- London_la_pop_2011to2022_zone %>%
+  mutate(year_numeric = as.numeric(year)) %>%
+  group_by(agegroups, year, year_numeric, Inner) %>% 
+  summarise(sum_value = sum(value)) %>%
+  data.frame()
+
+# Create new category so can highlight certain lines
+
+London_pop_Agegrouped_zone_2011_ind_label <- London_pop_zone_grouped_2011 %>%
+  group_by(agegroups, Inner) %>% 
+    mutate(indexed_pop = (sum_value/first(sum_value))*100) %>% 
+  mutate(label = if_else(year_numeric == max(year_numeric), as.character(agegroups),NA_character_)) %>%
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
+  data.frame()
+
+write.csv(London_pop_Agegrouped_zone_2011_ind_label, paste0(data_dir, "London_pop_Agegrouped_2011_ind.csv"))
+
+
+```
+
+```{r London_setup_calculations2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Data for plots from 1991
+
+# Read in population data by LA
+
+London_pop_1991to2022  <- fread("C:/Families/Data/London_population_1991to2022_SYA_sexCombined.csv") %>%
+  data.frame()
+
+London_pop_1991to2022_long <- London_pop_1991to2022 %>% 
+   pivot_longer(
+    cols = starts_with("ALL"),
+    names_to = "age",
+    names_prefix = "ALL",
+    values_to = "value",
+    values_drop_na = TRUE) %>%
+   filter(age != "All.Persons") %>%
+    mutate(age_numeric = as.numeric(age)) %>%  
+ #   mutate(year_numeric = as.numeric(year)) %>%
+   data.frame()  
+
+# Specify age groups 
+
+agebreaks <- c(0,11,18,25,40,65, 200)
+agelabels <- c("0-10","11-17","18-24","25-39","40-64","65+")
+
+setDT(London_pop_1991to2022_long)[ , agegroups := cut(age_numeric, 
+                                breaks = agebreaks, 
+                                right = FALSE, 
+                                labels = agelabels)]
+
+# Group by age-group
+
+London_pop_Agegrouped_1991 <- London_pop_1991to2022_long %>%
+  group_by(agegroups, Year) %>% 
+  summarise(sum_value = sum(value)) %>%
+  data.frame()
+
+# Create new category so can highlight certain lines
+
+London_pop_Agegrouped_1991_label <- London_pop_Agegrouped_1991 %>%
+  mutate(label = if_else(Year == max(Year), as.character(agegroups),NA_character_)) %>%
+  mutate(highlight_flag = ifelse(agegroups == '0-10'|agegroups == '25-39', T, F)) %>% 
+  data.frame()
+
+write.csv(London_pop_Agegrouped_1991_label, paste0(data_dir, "London_pop_Agegrouped_1991.csv"))
+
+```
+
+
+```{r fig_LondonPlots_1, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+### START FROM HERE
+
+## Plotting London's population by age-group, from 1991 to now
+
+
+colour_palette = c("#63c5b5","#6da7de", "#5ea15d","#943fa6","#eb861e", "#9e0059","#ff38ba", "#ee266d", "#dee000")
+
+# Read in data
+London_pop_grouped_label<- read.csv(paste0(data_dir, "London_pop_Agegrouped_1991.csv")) %>%
+  data.frame
+
+
+London_pop_grouped_line <- London_pop_grouped_label %>%
+    ggplot(aes(x = Year, y = sum_value/1000000, group = agegroups, color = agegroups)) +
+  theme_gla() +
+ geom_line(aes(size=highlight_flag)) +  #, alpha=highlight_flag
+  scale_size_manual( values = c(0.2, 2)) +
+ # scale_alpha_manual( values = c(NA, 1)) +
+  scale_color_manual(values = colour_palette, guide="none") + 
+  geom_label_repel(aes(label = label), nudge_x = 0.1) +
+  scale_y_continuous(limits = c(0, 3)) + #labels = label_number(suffix = "M")
+  scale_x_continuous(limits = c (1992, 2023), breaks = c(1992, 1997, 2002, 2007, 2012, 2017, 2022)) + 
+#  scale_y_continuous(labels = label_number(suffix = "K", scale = 1e-3, big.mark = ","))+
+    theme(legend.position =" none") 
+#+
+#  labs(title= "Population in London by age group, 1992 - 2022", 
+#       subtitle = "Population in millions",
+#       caption = paste0("Source: ONS, Chart: GLA demography"))
+London_pop_grouped_line
+
+ggsave (filename = "C:/Families/Charts_for_github/32_A_London_pop_grouped_line_1992to2022.svg",
+         plot = London_pop_grouped_line,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+```
+
+
+
+
+```{r fig_LondonPlots_5, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+## Plotting London's population by age-group, from 2011 to now, facet by zone
+
+
+colour_palette = c("#63c5b5","#6da7de", "#5ea15d","#943fa6","#eb861e", "#9e0059","#ff38ba", "#ee266d", "#dee000")
+
+
+# Read in data
+London_pop_Agegrouped_zone_2011_ind_label <- read.csv(paste0(data_dir, "London_pop_Agegrouped_2011_ind.csv")) %>%
+  data.frame
+
+
+## Plotting London population by age-group and zone, indexed values to 2011
+
+London_pop_grouped_line_facet <- London_pop_Agegrouped_zone_2011_ind_label %>%
+  ggplot(aes(x = year_numeric, y = indexed_pop, group = agegroups, color = agegroups)) +
+  theme_gla() +
+   geom_line(aes(size=highlight_flag)) +  #, alpha=highlight_flag
+  scale_size_manual(values = c(0.2, 2), guide = FALSE) +
+#  scale_alpha_manual(values = c(0.5, 1), guide = FALSE) +
+  geom_label_repel(aes(label = label), nudge_x = 1) +
+  scale_color_manual(values = colour_palette, guide="none") + 
+#   theme(legend.position =" none") +
+  geom_line() +
+  geom_hline(yintercept=100)+
+  theme(strip.text.x = element_text(size = 0)) +
+  scale_y_continuous(limits = c (90, 120),labels = label_number(suffix = "%")) +
+    scale_x_continuous(limits = c (2011, 2024), breaks = c(2011, 2015, 2019, 2022)) +  
+#   labs(title= "Population in London by age group, indexed to 2011, 2011 - 2021", 
+#       caption = paste0("Source: ONS, Chart: GLA demography")) +
+  #facet_grid(. ~ Inner)
+   facet_grid(. ~ factor(Inner, levels=c('1','0')))
+London_pop_grouped_line_facet
+
+ggsave (filename = "C:/Families/Charts_for_github/32_B_London_pop_grouped_line_facet_update.svg",
+         plot = London_pop_grouped_line_facet,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+```
+
+
+
+
+
+
+
+

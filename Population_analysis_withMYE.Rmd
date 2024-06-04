@@ -67,6 +67,14 @@ MYE2022data_long <- MYE2022data %>%
     values_to = "Value") %>%
     data.frame()
 
+# checking total births on 19th March 2024
+# 
+# London_births_grouped <- MYE2022data_long  %>%
+#   filter(component  =="Births") %>%
+#   group_by(Inner) %>%
+#   summarize(SUM_births = sum(Value)) %>%
+#   data.frame()
+
 
 ```
 
@@ -408,16 +416,16 @@ MYE2022data_ed <- MYE2022data %>%
   mutate(Name = fct_reorder(Name, Int_net_K)) %>%
   data.frame()
 
-colours = c("Immigration" = "#943fa6", "Emmigration" = "#63c5b5", "Net International migration" = "#eb861e")
+colours = c("Immigration" = "#943fa6", "Emigration" = "#63c5b5", "Net International migration" = "black")
 
 # bar chart where out-migration starts from zero and goes backwards, and in-migration starts from value of out-migration
 
 int_mig_seg2 <- ggplot(data = MYE2022data_ed) +
   theme_gla() +
-  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emmigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
   geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
   #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
-  geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=1.5, shape=21, fill="white") +
+  geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=2, shape=21, stroke = 1.5, fill="white") +
   scale_color_manual(name = "", values = colours) +
   scale_shape_manual(name = "", values = colours) +
  # scale_x_continuous(labels = label_number(suffix = "K"))+  
@@ -438,6 +446,35 @@ int_mig_seg2
 
 ```
 
+```{r fig_int_mig_line_abs2_B, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+# Chart for report
+
+int_mig_seg2_rep <- ggplot(data = MYE2022data_ed) +
+  theme_gla() +
+  geom_segment(aes(x=Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=Int_out_K,y = Name, xend = Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
+  #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
+  geom_point(aes(x=Int_net_K, y = Name, colour = "Net International migration"), size=2, shape=21, stroke = 1.5, fill="white") +
+  scale_color_manual(name = "", values = colours) +
+  scale_shape_manual(name = "", values = colours) +
+ # scale_x_continuous(labels = label_number(suffix = "K"))+  
+#  labs(title = "International migration",
+#       subtitle = "Population flows (thousand/year)",
+#       caption = paste0("Source: ONS mid year estimates, 2022\nChart: GLA demography")) +
+  guides(colour = guide_legend(override.aes = list(size = c(5, 5, 1.5), shape = c(NA, NA, 21)))) 
+
+ggsave (filename = "C:/Families/Charts_for_Daryl/23_C_Int_mig_London_boroughs.svg",
+         plot = int_mig_seg2_rep,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         units = "in")
+
+
+
+```
+
 ```{r fig_int_mig_line_abs3, fig.height = 9, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
 
 # Flip axes on 15 Feb 2024 because of James Gleeson's comment 
@@ -449,7 +486,7 @@ int_mig_seg2
 
 int_mig_seg3 <- ggplot(data = MYE2022data_ed) +
   theme_gla() +
-  geom_segment(aes(x=-Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emmigration"), size = 5, lineend = "butt", alpha = 0.5) +
+  geom_segment(aes(x=-Int_out_K, y =Name, xend = 0, yend = Name, colour = "Emigration"), size = 5, lineend = "butt", alpha = 0.5) +
   geom_segment(aes(x=-Int_out_K,y = Name, xend = -Int_net_K, yend=Name, colour = "Immigration"), size = 2, lineend = "butt", alpha = 0.5) +
   #geom_line(aes(x=domestic_net_K, y = name, colour = "Net domestic migration"), size = 1.5) +
   geom_point(aes(x=-Int_net_K, y = Name, colour = "Net International migration"), size=1.5, shape=21, fill="white") +

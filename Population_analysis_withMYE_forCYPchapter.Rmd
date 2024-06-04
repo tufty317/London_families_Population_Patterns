@@ -1,0 +1,109 @@
+---
+title: "Population, April 16 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bslib)
+library(DT)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(htmlwidgets)
+library(knitr)
+library(lubridate)
+library(maps)
+library(scales)
+library(forcats)
+
+data_dir <- 'DATA/'
+chart_dir <- 'CHARTS/'
+
+#colour_palette <- gla_colour_palette()[c(3,6,2,4,5,7,1)]
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Import MYE population data
+
+input_MYE2022_London_SYA_bysex <- fread(paste0(data_dir,"MYE22_PopSYA_London_bySex.csv")) %>% 
+    data.frame()
+
+# convert data from wide to long format
+
+London_SYA_bysex_long <- input_MYE2022_London_SYA_bysex %>% 
+   pivot_longer(
+    cols = starts_with("X"),
+    names_to = "year",
+    names_prefix = "X",
+    values_to = "value",
+    values_drop_na = TRUE) %>%
+data.frame()
+
+
+```
+
+
+```{r categories1, include=FALSE,  echo=FALSE, warning=FALSE, message=FALSE}
+
+glimpse(London_London_SYA_bysex_long)
+
+London_SYA_total_long <- London_SYA_bysex_long %>% 
+  filter(Sex=="Total") %>%
+  mutate(Year_num = as.numeric(year)) %>%
+  data.frame()   
+
+London_SYA_total_categories <- London_SYA_total_long %>% 
+  mutate(category = cut(Year_num, breaks=c(3, 5, 7, 11, 14, 16, 18), 
+                         labels=c("Early_Years","KS1","KS2", "KS3", "KS4", "KS5"))) %>%
+  group_by(category) %>% 
+  summarise(Total_value = sum(value)) %>%
+  data.frame()
+
+
+
+```
+
+
+```{r categories2, include=FALSE,  echo=FALSE, warning=FALSE, message=FALSE}
+
+
+London_SYA_categories <- London_SYA_bysex_long %>% 
+  mutate(Year_num = as.numeric(year)) %>%
+  mutate(Category = cut(Year_num, breaks=c(3, 5, 7, 11, 14, 16, 18), right=FALSE, 
+                         labels=c("Early_Years","KS1","KS2", "KS3", "KS4", "KS5"))) %>%
+  # Interval closed on left
+  group_by(Category, Sex) %>% 
+  summarise(Total_value = sum(value)) %>%
+  data.frame()
+
+London_SYA_categories_wide  <- London_SYA_categories  %>% 
+   pivot_wider(
+    names_from = "Sex",
+    values_from = "Total_value") 
+
+write.csv(London_SYA_categories_wide, paste0(data_dir,"MYE22_SchoolCategories_London_bySex2.csv"))
+
+
+```

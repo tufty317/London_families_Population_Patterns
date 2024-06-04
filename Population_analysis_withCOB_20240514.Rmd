@@ -1,0 +1,134 @@
+---
+title: "Population analysis, with COB data, Jan 23rd and May 2024"
+output: 
+  html_document:
+    css: Wil_style.css
+    theme: default
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+always_allow_html: yes
+---
+
+```{r setup1, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(zoo)
+library(readxl)
+library(knitr)
+library(sf)
+library(sp)
+library(kableExtra)
+library(magick)
+library(plotly)    
+library(RColorBrewer)
+library(htmltools)
+library(prettydoc)
+library(rmdformats)
+library(ggrepel)
+library(dplyr)
+library(gglaplot)
+library(ggplot2)
+library(data.table)
+library(lubridate)
+library(tidyr)
+library(scales)
+library(ggrepel)
+library(stringr)
+library(tidyverse)
+library(plotly)
+
+
+#devtools::load_all("C:/demogtools/")
+
+data_dir <- 'C:/Families/Data_for_github/'
+chart_dir <- 'C:/Families/Charts_for_github/'
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+
+```{r setup_2, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Read in population data 
+
+input_Births_MothersUKnonUK <- fread(paste0(data_dir,"COB_BirthsChange_MothersUKnonUK.csv"))%>% 
+  data.frame()
+
+Births_MothersUKnonUK_ed <- input_Births_MothersUKnonUK %>%
+  mutate(COB_factor = as.factor(mcob)) %>%
+  mutate(PopulationK = value/1000) %>%
+  data.frame()
+
+input_Births_MothersRegion <- fread(paste0(data_dir,"COB_BirthsChange_nonUK_MothersRegion.csv"))%>% 
+  data.frame()
+
+Births_MothersRegion_ed <- input_Births_MothersRegion  %>%
+  mutate(COB_factor = as.factor(mcob)) %>%
+  mutate(PopulationK = value/1000) %>%
+  data.frame()
+
+
+```
+
+
+```{r fig5, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+
+my_pal2 <- c("#eb861e", "#5ea15d")
+
+Fig5 <- Births_MothersUKnonUK_ed %>%
+   mutate(label = if_else(year == max(year), as.character(COB_factor),NA_character_)) %>% 
+  ggplot(aes(x=year, y=PopulationK, color=COB_factor, group=COB_factor)) + 
+   scale_color_manual(values=my_pal2, guide = FALSE)  +
+  theme_gla(free_y_facets = TRUE) +
+  geom_line(size=2) +
+  geom_label_repel(aes(label = label), nudge_x = 0.2)+
+  scale_x_continuous(limits = c (2001, 2023), breaks = c(2001, 2004, 2007, 2010, 2013, 2016, 2019, 2022)) + 
+  scale_y_continuous(limits=c(40, 80), breaks=c(40, 50, 60, 70, 80), labels = c('40', '50', '60', '70', '80'))
+ # labs(title = "Annual births in London 2001 to 2021 by whether mother was born in UK",
+   #    caption = paste0("Sources: As for chart in previous report"))
+Fig5
+
+ggsave (filename = "C:/Families/Charts_for_github/21_L_Births_COBMothers_UKnonUK.svg",
+         plot = Fig5,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+```
+
+```{r fig6, fig.height = 5.56, fig.width = 9,  echo=FALSE, warning=FALSE, message=FALSE}
+
+
+my_pal3 <- c("#6da7de", "#d82222", "#943fa6", "#63c5b5", "#eb861e")
+
+
+Fig6 <- Births_MothersRegion_ed %>%
+    mutate(label = if_else(year == max(year), as.character(COB_factor),NA_character_)) %>% 
+  ggplot(aes(x=year, y=PopulationK, color=COB_factor, group=COB_factor)) + 
+    geom_label_repel(aes(label = label), nudge_x = 0.2)+
+   scale_color_manual(values=my_pal3, guide = FALSE)  +
+  theme_gla(free_y_facets = TRUE) +
+  geom_line(size=2) +
+    scale_x_continuous(limits = c (2001, 2024), breaks = c(2001, 2004, 2007, 2010, 2013, 2016, 2019, 2022)) + 
+  scale_y_continuous(limits=c(0, 30), breaks=c(0, 10, 20, 30), labels = c('0', '10', '20', '30'))
+#  labs(title = "Annual births in London 2001-2022 by mother's region of birth (Non UK)",
+#       caption = paste0("Sources: As for chart in previous report"))
+Fig6
+
+ggsave (filename = "C:/Families/Charts_for_github/21_M_Births_COBMothers_Region.svg",
+         plot = Fig6,
+         device = "svg",
+         dpi=600,
+         width = 9,
+         height = 5.56,
+         units = "in")
+
+
+```
